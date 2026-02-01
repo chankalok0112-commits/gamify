@@ -1,0 +1,1230 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>星域主宰 | 皇家御用學習系統</title>
+    
+    <!-- React & Babel -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- FontAwesome Pro -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&family=Noto+Serif+TC:wght@400;700;900&family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet">
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        fantasy: ['"Cinzel"', '"Noto Serif TC"', 'serif'],
+                        body: ['"Noto Sans TC"', 'sans-serif'],
+                    },
+                    colors: {
+                        gold: '#FFD700',
+                        'gold-dim': '#C5A059',
+                        accent: '#a855f7', 
+                        glass: 'rgba(15, 15, 28, 0.95)',
+                    },
+                    animation: {
+                        'spin-slow': 'spin 30s linear infinite',
+                        'float': 'float 6s ease-in-out infinite',
+                        'pulse-glow': 'pulse-glow 2s infinite',
+                        'twinkle': 'twinkle 4s ease-in-out infinite',
+                        'fade-in': 'fadeIn 0.3s ease-out forwards',
+                    },
+                    keyframes: {
+                        float: { '0%, 100%': { transform: 'translateY(0)' }, '50%': { transform: 'translateY(-6px)' } },
+                        'pulse-glow': { 
+                            '0%, 100%': { boxShadow: '0 0 10px rgba(168, 85, 247, 0.3), inset 0 0 5px rgba(168, 85, 247, 0.1)' }, 
+                            '50%': { boxShadow: '0 0 25px rgba(168, 85, 247, 0.6), inset 0 0 15px rgba(168, 85, 247, 0.3)' } 
+                        },
+                        twinkle: {
+                            '0%, 100%': { opacity: 0.8, transform: 'scale(1)' },
+                            '50%': { opacity: 0.4, transform: 'scale(0.8)' }
+                        },
+                        fadeIn: {
+                            '0%': { opacity: 0, transform: 'translateY(10px)' },
+                            '100%': { opacity: 1, transform: 'translateY(0)' }
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        /* === 🌌 星雲背景 === */
+        body {
+            margin: 0; padding: 0;
+            background-color: #050510;
+            font-family: 'Noto Sans TC', sans-serif;
+            color: #E2E8F0;
+            min-height: 100vh;
+            overflow-x: hidden;
+            background-image: 
+                radial-gradient(circle at 15% 50%, rgba(76, 29, 149, 0.4), transparent 40%),
+                radial-gradient(circle at 85% 30%, rgba(59, 130, 246, 0.25), transparent 40%),
+                radial-gradient(circle at 50% 80%, rgba(217, 70, 239, 0.2), transparent 40%),
+                radial-gradient(circle at 50% 50%, rgba(15, 23, 42, 0.8), rgba(5, 5, 10, 1));
+            background-attachment: fixed;
+        }
+
+        .stars {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background-image: 
+                radial-gradient(2px 2px at 20px 30px, #eee, rgba(0,0,0,0)),
+                radial-gradient(2px 2px at 40px 70px, #fff, rgba(0,0,0,0)),
+                radial-gradient(1px 1px at 90px 40px, #fff, rgba(0,0,0,0));
+            background-size: 200px 200px;
+            animation: twinkle 8s infinite;
+            z-index: -1; opacity: 0.7;
+        }
+
+        /* === 🔮 面板與互動 === */
+        .arcane-panel {
+            background: rgba(20, 20, 35, 0.9);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 215, 0, 0.15);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.7);
+            border-radius: 12px;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative; z-index: 10;
+        }
+        
+        .arcane-panel:hover {
+            border-color: rgba(168, 85, 247, 0.5);
+            box-shadow: 0 0 25px rgba(139, 92, 246, 0.25);
+            transform: translateY(-2px);
+        }
+
+        .text-gold-glow {
+            font-family: 'Cinzel', serif;
+            background: linear-gradient(180deg, #FFFFFF 20%, #FFD700 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 0 0 15px rgba(255, 215, 0, 0.5);
+            font-weight: 700; letter-spacing: 1px;
+        }
+
+        .magic-input {
+            background: rgba(0, 0, 0, 0.7) !important;
+            border: 1px solid rgba(255, 255, 255, 0.15) !important;
+            color: #FFF !important; transition: all 0.3s;
+        }
+        .magic-input:focus {
+            border-color: #FFD700 !important;
+            box-shadow: 0 0 15px rgba(255, 215, 0, 0.3);
+            background: rgba(0, 0, 0, 0.9) !important; outline: none;
+        }
+
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: rgba(0,0,0,0.3); }
+        ::-webkit-scrollbar-thumb { background: linear-gradient(to bottom, #4C1D95, #7C3AED); border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #8B5CF6; }
+
+        .soul-avatar {
+            width: 100px; height: 100px; border-radius: 50%;
+            background: radial-gradient(circle at 30% 30%, #FFD700, #B8860B, #000);
+            box-shadow: 0 0 30px rgba(255, 215, 0, 0.4);
+            position: relative; overflow: hidden;
+            display: flex; align-items: center; justify-content: center;
+            border: 2px solid #FFD700;
+        }
+        .soul-avatar::after {
+            content: ''; position: absolute; inset: 0;
+            background: linear-gradient(45deg, transparent 40%, rgba(255,255,255,0.8) 50%, transparent 60%);
+            animation: shine 4s infinite;
+        }
+        @keyframes shine { 0% { transform: translateX(-150%) translateY(-150%); } 100% { transform: translateX(150%) translateY(150%); } }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #4C1D95 0%, #6D28D9 100%);
+            border: 1px solid #8B5CF6; color: white;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3); transition: all 0.2s; cursor: pointer; position: relative; z-index: 20;
+        }
+        .btn-primary:hover {
+            background: linear-gradient(135deg, #5B21B6 0%, #7C3AED 100%);
+            box-shadow: 0 0 15px rgba(139, 92, 246, 0.5); transform: scale(1.02);
+        }
+        .btn-primary:active { transform: scale(0.98); }
+
+        .tooltip { position: relative; display: inline-block; cursor: help; }
+        .tooltip .tooltiptext {
+            visibility: hidden; width: 220px; background-color: rgba(0,0,0,0.95);
+            color: #fff; text-align: left; border-radius: 6px; padding: 8px; border: 1px solid #FFD700;
+            position: absolute; z-index: 100; bottom: 125%; left: 50%; margin-left: -110px;
+            opacity: 0; transition: opacity 0.3s; font-size: 0.75rem; pointer-events: none;
+        }
+        .tooltip:hover .tooltiptext { visibility: visible; opacity: 1; }
+    </style>
+</head>
+<body>
+    <div class="stars"></div>
+    <div id="root" class="relative z-10 p-4 min-h-screen"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef, useMemo } = React;
+
+        // --- 🔊 音效引擎 ---
+        class SoundEngine {
+            constructor() { this.ctx = null; }
+            init() {
+                if (!this.ctx) {
+                    const AudioContext = window.AudioContext || window.webkitAudioContext;
+                    this.ctx = new AudioContext();
+                }
+                if (this.ctx.state === 'suspended') this.ctx.resume();
+            }
+            playTone(freq, type, duration, vol=0.1) {
+                if(!this.ctx) return;
+                try {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = type;
+                    osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+                    gain.gain.setValueAtTime(vol, this.ctx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + duration);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start();
+                    osc.stop(this.ctx.currentTime + duration);
+                } catch(e) {}
+            }
+            playFanfare() { 
+                this.init();
+                [523.25, 659.25, 783.99, 1046.50].forEach((f, i) => setTimeout(() => this.playTone(f, 'triangle', 0.4, 0.2), i * 150));
+            }
+            playSFX(type) {
+                this.init();
+                switch(type) {
+                    case 'hover': this.playTone(400, 'sine', 0.05, 0.02); break;
+                    case 'click': this.playTone(800, 'triangle', 0.1, 0.05); break;
+                    case 'error': this.playTone(150, 'sawtooth', 0.2, 0.1); break;
+                    case 'money': this.playTone(1200, 'sine', 0.1, 0.05); setTimeout(() => this.playTone(1800, 'sine', 0.2, 0.05), 80); break;
+                }
+            }
+        }
+        const soundEngine = new SoundEngine();
+
+        // --- 🌌 系統常數 ---
+        const DEFAULT_TITLES = [
+            { name: "👣 逐星旅人", req: 0 }, { name: "✨ 星輝行者", req: 1000 },
+            { name: "🌙 銀月先驅", req: 3000 }, { name: "☀️ 金陽真君", req: 6000 },
+            { name: "🌌 銀河先知", req: 10000 }, { name: "🪐 星域統御", req: 15000 },
+            { name: "🌀 宇宙主宰", req: 25000 }, { name: "⏳ 時空聖賢", req: 40000 },
+            { name: "💫 永恆神主", req: 60000 }, { name: "🌟 創世天尊", req: 100000 }
+        ];
+
+        const CURRENCIES = {
+            mithril: { name: "秘銀星屑", icon: "fa-gem", color: "text-blue-300", desc: "完成日常任務獲得。" },
+            star:    { name: "星耀印記", icon: "fa-star", color: "text-yellow-400", desc: "單次專注時間達標獲得。" },
+            ripple:  { name: "不息漣漪", icon: "fa-water", color: "text-cyan-400", desc: "每日連續打卡獲得。" },
+            seed:    { name: "啟蒙之種", icon: "fa-seedling", color: "text-green-400", desc: "解鎖成就時獲得。" },
+            soul:    { name: "靈魂刻印", icon: "fa-fire", color: "text-red-500", desc: "完成高難度任務獲得。" }
+        };
+
+        const DEFAULT_RULES = {
+            money_per_min: 10, // 預設調高一點
+            diff_easy: 1, diff_med: 1.5, diff_hard: 2, diff_ext: 3,
+            hate_mult: 1.2, star_threshold: 60, checkin_reward: 1, achv_reward: 10,
+            music_url: "https://cdn.pixabay.com/audio/2022/05/27/audio_1808fbf07a.mp3", 
+            music_volume: 0.3
+        };
+
+        const INITIAL_DATA = {
+            userName: "",
+            setupComplete: false,
+            titles: DEFAULT_TITLES,
+            subjects: ["英文", "中文", "數學", "物理", "化學", "生物", "歷史"],
+            rules: DEFAULT_RULES,
+            profile: {
+                xp: 0, streak: 0, last_login: "",
+                coins_mithril: 0, coins_star: 0, coins_ripple: 0, coins_seed: 0, coins_soul: 0,
+                today_coins: 0, day_type: "🏫 上學日", checked_in: false,
+                check_in_history: [] 
+            },
+            tasks: [],
+            goals: [
+                { id: 1, subject: "英文", name: "背單字", priority: "High", status: "進行中", deadline: new Date().toISOString().split('T')[0] }
+            ],
+            shop: [
+                { id: 1, name: "30分鐘遊戲時間", cost: 10, currency: "mithril", desc: "稍作休息", type: "consumable" },
+                { id: 2, name: "一日休息卷", cost: 300, currency: "mithril", desc: "今日目標歸零", type: "functional", effect: "rest_day" }
+            ],
+            inventory: {}, 
+            history: [], 
+            adventure_log: [], 
+            achievements: [
+                { id: "c1", name: "初入世界", desc: "首次使用本系統", reward: 10, currency: "seed", completed: false }
+            ]
+        };
+
+        // --- ⚛️ 主程式 ---
+        const App = () => {
+            const [data, setData] = useState(() => {
+                const saved = localStorage.getItem("isekai_system_v26_ultra");
+                const parsed = saved ? JSON.parse(saved) : INITIAL_DATA;
+                if(!parsed.rules) parsed.rules = DEFAULT_RULES;
+                return parsed;
+            });
+            const [activeTab, setActiveTab] = useState("calendar");
+            const [toast, setToast] = useState(null);
+            const [modal, setModal] = useState(null);
+            const [started, setStarted] = useState(false);
+            const [editingCurrency, setEditingCurrency] = useState(false);
+            const audioRef = useRef(null);
+
+            useEffect(() => { localStorage.setItem("isekai_system_v26_ultra", JSON.stringify(data)); }, [data]);
+
+            useEffect(() => {
+                const today = new Date().toISOString().split('T')[0];
+                if (data.profile.last_login !== today) {
+                    setData(prev => ({
+                        ...prev,
+                        profile: {
+                            ...prev.profile,
+                            last_login: today,
+                            today_coins: 0,
+                            checked_in: false,
+                            day_type: new Date().getDay() % 6 === 0 ? "📅 週末" : "🏫 上學日"
+                        }
+                    }));
+                    if(data.setupComplete) setModal({ type: 'daily_welcome' });
+                }
+            }, []);
+
+            useEffect(() => {
+                if(audioRef.current && started) {
+                    audioRef.current.volume = data.rules.music_volume || 0.3;
+                    if(data.rules.music_url && audioRef.current.src !== data.rules.music_url) {
+                        audioRef.current.src = data.rules.music_url;
+                        audioRef.current.play().catch(e => console.log("Audio prevented", e));
+                    }
+                }
+            }, [data.rules.music_url, data.rules.music_volume, started]);
+
+            const startSystem = () => {
+                setStarted(true);
+                soundEngine.init();
+                soundEngine.playFanfare();
+                if(audioRef.current && data.rules.music_url) audioRef.current.play();
+            };
+
+            const showToast = (msg, icon="check") => {
+                setToast({ msg, icon });
+                if(icon.includes("check") || icon.includes("coins") || icon.includes("gift")) soundEngine.playSFX('money');
+                else soundEngine.playSFX('error');
+                setTimeout(() => setToast(null), 3000);
+            };
+
+            const getTitleData = () => {
+                const xp = data.profile.coins_mithril;
+                let idx = 0;
+                for(let i = 0; i < data.titles.length; i++) {
+                    if(xp >= data.titles[i].req) idx = i; else break;
+                }
+                const current = data.titles[idx];
+                const next = data.titles[idx + 1] || { name: "已達頂峰", req: xp };
+                let progress = next.name !== "已達頂峰" ? Math.min(100, Math.max(0, ((xp - current.req) / (next.req - current.req)) * 100)) : 100;
+                return { current: current.name, next: next.name, progress, level: idx + 1, idx, nextReq: next.req };
+            };
+            const titleData = getTitleData();
+
+            // --- 📅 Tab 1: 時光織錦 ---
+            const CalendarView = () => {
+                const [viewDate, setViewDate] = useState(new Date());
+                const year = viewDate.getFullYear();
+                const month = viewDate.getMonth();
+                const daysInMonth = new Date(year, month + 1, 0).getDate();
+                const offset = new Date(year, month, 1).getDay() === 0 ? 6 : new Date(year, month, 1).getDay() - 1;
+
+                const getDayData = (day) => {
+                    const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                    let income = 0;
+                    let logs = [];
+                    data.adventure_log.forEach(h => {
+                        if ((h.date === dateStr) && h.type === 'income') {
+                            const match = h.cost.match(/(\d+(\.\d+)?)秘/);
+                            if(match) income += parseFloat(match[1]);
+                            logs.push(h);
+                        }
+                    });
+                    const checkedIn = data.profile.check_in_history.includes(dateStr);
+                    return { dateStr, income, logs, checkedIn };
+                };
+
+                return (
+                    <div className="space-y-6 animate-fade-in">
+                        <div className="flex justify-between items-center bg-black/60 p-4 rounded-xl border border-gold/30 shadow-lg">
+                            <button onClick={() => { setViewDate(new Date(year, month - 1, 1)); soundEngine.playSFX('click'); }} className="text-gold hover:text-white p-2"><i className="fa-solid fa-chevron-left fa-lg"></i></button>
+                            <h2 className="text-3xl font-fantasy text-gold-glow tracking-widest flex items-center gap-2">
+                                <i className="fa-solid fa-calendar-days text-accent"></i> {year} 年 {month + 1} 月
+                            </h2>
+                            <button onClick={() => { setViewDate(new Date(year, month + 1, 1)); soundEngine.playSFX('click'); }} className="text-gold hover:text-white p-2"><i className="fa-solid fa-chevron-right fa-lg"></i></button>
+                        </div>
+                        <div className="grid grid-cols-7 gap-3">
+                            {['MON','TUE','WED','THU','FRI','SAT','SUN'].map(d => <div key={d} className="text-center text-gray-400 font-bold uppercase tracking-wider">{d}</div>)}
+                            {Array(offset).fill(null).map((_, i) => <div key={`e-${i}`}></div>)}
+                            {Array(daysInMonth).fill(null).map((_, i) => {
+                                const day = i + 1;
+                                const info = getDayData(day);
+                                const isToday = info.dateStr === new Date().toISOString().split('T')[0];
+                                return (
+                                    <div key={day} onClick={() => { setModal({ type: 'day_detail', data: info }); soundEngine.playSFX('click'); }}
+                                        className={`h-32 arcane-panel p-2 cursor-pointer group transition-all duration-300 hover:scale-[1.05]
+                                            ${isToday ? 'border-gold bg-gold/10 shadow-[0_0_20px_rgba(255,215,0,0.3)]' : 'border-white/10 hover:border-gold/50'}
+                                        `}>
+                                        <div className="flex justify-between items-center mb-1">
+                                            <span className={`font-bold text-xl ${isToday ? 'text-gold' : 'text-gray-400'}`}>{day}</span>
+                                            {info.checkedIn && <i className="fa-solid fa-circle-check text-green-400 text-lg animate-pulse"></i>}
+                                        </div>
+                                        <div className="space-y-1 overflow-hidden">
+                                            {info.income > 0 && <div className="text-xs text-blue-300 font-mono flex items-center gap-1"><i className="fa-solid fa-gem text-[10px]"></i> +{Math.floor(info.income)}</div>}
+                                            {info.logs.length > 0 && <div className="text-[9px] text-gray-500">完成 {info.logs.length} 項任務</div>}
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                );
+            };
+
+            // --- 🔭 Tab 2: 命途星圖 ---
+            const GoalView = () => {
+                const [viewMode, setViewMode] = useState('kanban'); 
+                const [newGoal, setNewGoal] = useState({ subject: "", name: "", priority: "Medium", status: "進行中", deadline: new Date().toISOString().split('T')[0] });
+                const [isEditingSubject, setIsEditingSubject] = useState(false);
+                const [newSubjName, setNewSubjName] = useState("");
+
+                const addGoal = () => {
+                    if(!newGoal.name) return showToast("請輸入目標名稱", "exclamation");
+                    const subj = newGoal.subject || "未分類";
+                    if(!data.subjects.includes(subj)) setData(p => ({...p, subjects: [...p.subjects, subj]}));
+                    setData(p => ({ ...p, goals: [...p.goals, { id: Date.now(), ...newGoal, subject: subj }] }));
+                    setNewGoal({ ...newGoal, name: "" });
+                    soundEngine.playSFX('success');
+                };
+
+                const updateGoal = (id, field, val) => setData(p => ({ ...p, goals: p.goals.map(g => g.id === id ? { ...g, [field]: val } : g) }));
+                const deleteGoal = (id) => confirm("刪除？") && setData(p => ({...p, goals: p.goals.filter(g => g.id !== id)}));
+                const toggleStatus = (id) => setData(p => ({ ...p, goals: p.goals.map(g => g.id === id ? { ...g, status: g.status === "已完成" ? "進行中" : "已完成" } : g) }));
+
+                const addSubject = () => {
+                    if(newSubjName && !data.subjects.includes(newSubjName)) {
+                        setData(p => ({...p, subjects: [...p.subjects, newSubjName]}));
+                        setNewSubjName("");
+                    }
+                };
+
+                const deleteSubject = (sub) => {
+                    if(confirm(`確定刪除科目「${sub}」？`)) {
+                        setData(p => ({...p, subjects: p.subjects.filter(s => s !== sub)}));
+                    }
+                };
+
+                return (
+                    <div className="space-y-6">
+                        <div className="flex flex-wrap justify-between items-center bg-black/40 p-4 rounded-xl border border-white/10 gap-4">
+                            <h3 className="text-2xl font-fantasy text-gold-glow flex items-center gap-2"><i className="fa-solid fa-compass"></i> 命途星圖</h3>
+                            <div className="flex gap-2">
+                                <button onClick={() => setViewMode('kanban')} className={`px-4 py-2 rounded font-bold ${viewMode==='kanban' ? 'bg-accent text-white' : 'bg-slate-800 text-gray-400'}`}><i className="fa-solid fa-columns"></i> 看板</button>
+                                <button onClick={() => setViewMode('calendar')} className={`px-4 py-2 rounded font-bold ${viewMode==='calendar' ? 'bg-accent text-white' : 'bg-slate-800 text-gray-400'}`}><i className="fa-solid fa-calendar-check"></i> 截止</button>
+                                <button onClick={() => setIsEditingSubject(!isEditingSubject)} className={`px-4 py-2 rounded font-bold ${isEditingSubject ? 'bg-indigo-600 text-white' : 'bg-slate-700 text-gray-300'}`}><i className="fa-solid fa-book"></i> 科目管理</button>
+                            </div>
+                        </div>
+
+                        {isEditingSubject && (
+                            <div className="arcane-panel p-4 mb-4">
+                                <div className="flex gap-2 mb-4">
+                                    <input className="magic-input p-2 rounded" placeholder="新科目名稱" value={newSubjName} onChange={e => setNewSubjName(e.target.value)} />
+                                    <button onClick={addSubject} className="btn-primary px-4 rounded">新增</button>
+                                </div>
+                                <div className="flex gap-2 flex-wrap">
+                                    {data.subjects.map(s => (
+                                        <div key={s} className="bg-slate-800 px-3 py-1 rounded border border-white/10 text-sm flex items-center gap-2 pr-1 relative z-20">
+                                            {s} 
+                                            <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); deleteSubject(s); }} className="w-6 h-6 flex items-center justify-center bg-red-500 hover:bg-red-600 text-white rounded-full transition-colors cursor-pointer relative z-30">
+                                                <i className="fa-solid fa-xmark text-xs pointer-events-none"></i>
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        <div className="arcane-panel p-4 flex flex-wrap gap-2 items-center">
+                            <select className="magic-input p-2 rounded w-32" value={newGoal.subject} onChange={e => setNewGoal({...newGoal, subject: e.target.value})}>
+                                <option value="">科目...</option>
+                                {data.subjects.map(s => <option key={s} value={s}>{s}</option>)}
+                            </select>
+                            <input className="magic-input p-2 rounded flex-1" placeholder="新目標名稱..." value={newGoal.name} onChange={e => setNewGoal({...newGoal, name: e.target.value})} />
+                            <input type="date" className="magic-input p-2 rounded" value={newGoal.deadline} onChange={e => setNewGoal({...newGoal, deadline: e.target.value})} />
+                            <button onClick={addGoal} className="btn-primary px-4 py-2 rounded font-bold"><i className="fa-solid fa-plus"></i></button>
+                        </div>
+
+                        {viewMode === 'kanban' && (
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                {[...new Set([...data.subjects, ...data.goals.map(g => g.subject)])].map(subj => (
+                                    <div key={subj} className="arcane-panel p-4 flex flex-col gap-3">
+                                        <h4 className="text-gold font-bold border-b border-white/10 pb-2 mb-2">{subj}</h4>
+                                        {data.goals.filter(g => g.subject === subj).map(g => (
+                                            <div key={g.id} className="p-3 rounded bg-black/40 border border-white/5 hover:border-gold/30 transition flex justify-between items-center">
+                                                <div className="flex-1 mr-2">
+                                                    <input className="bg-transparent font-bold w-full outline-none text-white" value={g.name} onChange={e => updateGoal(g.id, 'name', e.target.value)} />
+                                                    <div className="text-xs text-gray-400">{g.deadline}</div>
+                                                </div>
+                                                <div className="flex gap-2">
+                                                    <button onClick={() => { toggleStatus(g.id); soundEngine.playSFX('success'); }} className="text-green-400 hover:text-green-300"><i className={`fa-solid ${g.status==='已完成'?'fa-rotate-left':'fa-check'}`}></i></button>
+                                                    <button onClick={() => deleteGoal(g.id)} className="text-red-400 opacity-0 hover:opacity-100 transition"><i className="fa-solid fa-trash"></i></button>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                        {viewMode === 'calendar' && (
+                            <div className="arcane-panel p-6 space-y-2">
+                                {data.goals.sort((a,b) => new Date(a.deadline) - new Date(b.deadline)).map(g => (
+                                    <div key={g.id} className="flex items-center gap-4 p-3 bg-black/40 rounded border border-white/5">
+                                        <div className={`w-2 h-10 rounded ${g.priority==='High'?'bg-red-500':g.priority==='Medium'?'bg-yellow-500':'bg-green-500'}`}></div>
+                                        <div className="flex-1">
+                                            <span className="text-xs bg-slate-700 px-2 rounded text-gray-300 mr-2">{g.subject}</span>
+                                            <span className={`font-bold ${g.status==='已完成' ? 'line-through text-gray-500' : 'text-white'}`}>{g.name}</span>
+                                            <span className="text-xs text-gray-400 ml-2"><i className="fa-regular fa-clock"></i> {g.deadline}</span>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                );
+            };
+
+            // --- ⚔️ Tab 3: 征途繪卷 ---
+            const TaskView = () => {
+                const [newTask, setNewTask] = useState({ name: "", goal: "", est: 30, diff: "簡單", hate: false, notes: "" });
+                const [completeModal, setCompleteModal] = useState(null);
+
+                const getRewardPreview = () => {
+                    const diffBonus = { "簡單": data.rules.diff_easy, "中等": data.rules.diff_med, "困難": data.rules.diff_hard, "極難": data.rules.diff_ext }[newTask.diff] || 5;
+                    let mithril = Number((newTask.est * diffBonus * data.rules.money_per_min).toFixed(1));
+                    if (newTask.hate) mithril = Number((mithril * data.rules.hate_mult).toFixed(1));
+                    return mithril;
+                };
+
+                const addTask = () => {
+                    if (!newTask.name) return showToast("內容不能為空", "exclamation");
+                    setData(p => ({...p, tasks: [...p.tasks, { id: Date.now(), ...newTask, status: 'active', date: new Date().toISOString() }]}));
+                    setNewTask({ ...newTask, name: "", notes: "" }); 
+                    showToast("委託已發布", "scroll");
+                };
+
+                const handleComplete = (taskId, total, focus) => {
+                    const task = data.tasks.find(t => t.id === taskId);
+                    const rate = { "簡單": data.rules.diff_easy, "中等": data.rules.diff_med, "困難": data.rules.diff_hard, "極難": data.rules.diff_ext }[task.diff] || 5;
+                    let mithril = Number((focus * rate * data.rules.money_per_min).toFixed(1));
+                    if (task.hate) mithril = Number((mithril * data.rules.hate_mult).toFixed(1));
+                    
+                    let soul = (task.diff === "困難" ? 1 : (task.diff === "極難" ? 2 : 0));
+                    let star = focus >= data.rules.star_threshold ? Math.floor(focus / 60) : 0;
+                    const rewardStr = `+${mithril}秘` + (soul ? ` +${soul}靈` : '') + (star ? ` +${star}星` : '');
+                    const todayStr = new Date().toISOString().split('T')[0];
+
+                    setData(prev => ({
+                        ...prev,
+                        profile: {
+                            ...prev.profile,
+                            coins_mithril: prev.profile.coins_mithril + mithril,
+                            coins_soul: prev.profile.coins_soul + soul,
+                            coins_star: prev.profile.coins_star + star,
+                            today_coins: prev.profile.today_coins + mithril
+                        },
+                        tasks: prev.tasks.filter(t => t.id !== taskId),
+                        adventure_log: [{ 
+                            date: todayStr, 
+                            displayDate: new Date().toLocaleString(), 
+                            item: `完成: ${task.name}`, 
+                            cost: rewardStr, 
+                            type: 'income',
+                            details: `總:${total}分 / 專注:${focus}分 / ${task.notes || '無備註'}`,
+                            subject: task.goal || "雜項",
+                            rawMithril: mithril // for revert
+                        }, ...prev.adventure_log]
+                    }));
+                    setCompleteModal(null);
+                    soundEngine.playFanfare();
+                    showToast(`獲得 ${mithril} 秘銀`, "coins");
+                };
+
+                return (
+                    <div className="space-y-6">
+                        <div className="arcane-panel p-6 border-t-2 border-accent">
+                            <h3 className="text-xl font-fantasy text-white mb-4"><i className="fa-solid fa-scroll text-accent"></i> 發布新委託</h3>
+                            <div className="grid grid-cols-1 md:grid-cols-12 gap-3 mb-4">
+                                <input className="md:col-span-4 magic-input p-3 rounded" placeholder="任務內容..." value={newTask.name} onChange={e => setNewTask({...newTask, name: e.target.value})} />
+                                <select className="md:col-span-3 magic-input p-3 rounded" value={newTask.goal} onChange={e => setNewTask({...newTask, goal: e.target.value})}>
+                                    <option value="">(關聯目標)</option>
+                                    {data.goals.map(g => <option key={g.id} value={g.name}>{g.name}</option>)}
+                                </select>
+                                <input type="number" className="md:col-span-2 magic-input p-3 rounded" placeholder="預計(分)" value={newTask.est} onChange={e => setNewTask({...newTask, est: Number(e.target.value)})} />
+                                <select className="md:col-span-2 magic-input p-3 rounded" value={newTask.diff} onChange={e => setNewTask({...newTask, diff: e.target.value})}>
+                                    {["簡單", "中等", "困難", "極難"].map(d => <option key={d} value={d}>{d}</option>)}
+                                </select>
+                                <label className="md:col-span-1 flex items-center justify-center bg-red-900/30 rounded border border-red-500/30 text-xs text-red-300">
+                                    <input type="checkbox" className="mr-1" checked={newTask.hate} onChange={e => setNewTask({...newTask, hate: e.target.checked})} /> 厭惡
+                                </label>
+                            </div>
+                            <textarea className="magic-input w-full p-2 rounded mb-2 text-sm" placeholder="備註 (選填)" rows="2" value={newTask.notes} onChange={e => setNewTask({...newTask, notes: e.target.value})}></textarea>
+                            <div className="flex justify-between items-center bg-black/40 p-2 rounded text-sm text-gray-400 mb-2">
+                                <span>公式: 專注時間 × 難度係數</span>
+                                <span className="text-gold font-bold">預計: {getRewardPreview()} 秘銀</span>
+                            </div>
+                            <button onClick={addTask} className="w-full btn-primary py-2 rounded font-bold">發布委託</button>
+                        </div>
+
+                        <div className="space-y-3">
+                            {data.tasks.map(task => (
+                                <div key={task.id} className="arcane-panel p-4 flex flex-col md:flex-row justify-between items-center gap-4">
+                                    <div className="flex-1">
+                                        <div className="flex items-center gap-2">
+                                            <span className={`px-2 py-0.5 text-xs rounded border ${task.diff.includes('難')?'border-red-500 text-red-400':'border-green-500 text-green-400'}`}>{task.diff}</span>
+                                            <h4 className="font-bold text-lg text-white">{task.name}</h4>
+                                            {task.hate && <span className="text-[10px] bg-red-900 px-2 rounded text-white">厭惡</span>}
+                                        </div>
+                                        <p className="text-sm text-gray-400 mt-1">🎯 {task.goal||"無"} | ⏳ 預計 {task.est} 分 {task.notes && `| 📝 ${task.notes}`}</p>
+                                    </div>
+                                    <button onClick={() => setCompleteModal(task.id)} className="px-4 py-2 bg-green-700 hover:bg-green-600 text-white rounded font-bold shadow-lg">回報成果</button>
+                                    <button onClick={() => setData(p => ({...p, tasks: p.tasks.filter(t => t.id !== task.id)}))} className="text-red-400 px-2"><i className="fa-solid fa-trash"></i></button>
+                                </div>
+                            ))}
+                        </div>
+
+                        {completeModal && (
+                            <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4 animate-fade-in" onClick={() => setCompleteModal(null)}>
+                                <div className="arcane-panel p-6 max-w-sm w-full" onClick={e => e.stopPropagation()}>
+                                    <h3 className="text-xl font-bold text-white mb-4">任務結算</h3>
+                                    <div className="space-y-3">
+                                        <div><label className="text-xs text-gray-400">實際總耗時 (分)</label><input type="number" id="totalTime" className="magic-input w-full p-2 rounded" defaultValue={data.tasks.find(t=>t.id===completeModal).est} /></div>
+                                        <div><label className="text-xs text-gold">實際專注時間 (分) - 獎勵依據</label><input type="number" id="focusTime" className="magic-input w-full p-2 rounded border-gold/50" defaultValue={data.tasks.find(t=>t.id===completeModal).est} /></div>
+                                        <button onClick={() => handleComplete(completeModal, Number(document.getElementById('totalTime').value), Number(document.getElementById('focusTime').value))} className="w-full py-2 bg-green-600 rounded font-bold mt-2">確認領賞</button>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                );
+            };
+
+            // --- 📜 Tab 4: 冒險手札 (Log) ---
+            const AdventureLogView = () => {
+                const [view, setView] = useState('daily'); // daily, project
+                
+                const revertLog = (idx) => {
+                    const log = data.adventure_log[idx];
+                    if(!log || !confirm("確定撤銷此紀錄？獎勵將被扣除。")) return;
+                    
+                    // Deduct rewards logic (Simplified for mithril)
+                    let newProfile = {...data.profile};
+                    if(log.rawMithril) newProfile.coins_mithril -= log.rawMithril;
+                    // Note: Could expand for other currencies if tracked in log details
+
+                    const newLog = [...data.adventure_log];
+                    newLog.splice(idx, 1);
+                    setData(p => ({...p, profile: newProfile, adventure_log: newLog}));
+                    showToast("紀錄已撤銷", "rotate-left");
+                };
+
+                // Group for Project View
+                const groupedBySubject = {};
+                data.adventure_log.forEach(l => {
+                    const subj = l.subject || "未分類";
+                    if(!groupedBySubject[subj]) groupedBySubject[subj] = { totalTime: 0, logs: [] };
+                    // Parse time from details string: "總:30分..."
+                    const timeMatch = l.details && l.details.match(/總:(\d+)/);
+                    if(timeMatch) groupedBySubject[subj].totalTime += parseInt(timeMatch[1]);
+                    groupedBySubject[subj].logs.push(l);
+                });
+
+                return (
+                    <div className="space-y-6">
+                        <div className="flex gap-4 border-b border-white/10 pb-4">
+                            <button onClick={() => setView('daily')} className={`text-lg font-bold ${view==='daily'?'text-gold border-b-2 border-gold':'text-gray-400'}`}>📅 每日足跡</button>
+                            <button onClick={() => setView('project')} className={`text-lg font-bold ${view==='project'?'text-gold border-b-2 border-gold':'text-gray-400'}`}>📂 專案歸檔</button>
+                        </div>
+                        
+                        <div className="arcane-panel p-6 h-[600px] overflow-y-auto">
+                            {view === 'daily' && data.adventure_log.map((h, i) => (
+                                <div key={i} className="p-3 bg-black/30 rounded border border-white/5 hover:border-gold/30 transition mb-2 flex justify-between items-start">
+                                    <div className="flex-1">
+                                        <div className="font-bold text-white">{h.item} <span className="text-green-400 font-mono ml-2">{h.cost}</span></div>
+                                        <div className="text-xs text-gray-400 mt-1">
+                                            <span className="bg-slate-700 px-1 rounded mr-2">{h.subject}</span> 
+                                            {h.details} | {h.displayDate || h.date}
+                                        </div>
+                                    </div>
+                                    <button onClick={() => revertLog(i)} className="text-gray-600 hover:text-red-500 px-2 py-1"><i className="fa-solid fa-rotate-left"></i> 撤銷</button>
+                                </div>
+                            ))}
+
+                            {view === 'project' && Object.entries(groupedBySubject).map(([subj, data]) => (
+                                <div key={subj} className="mb-6">
+                                    <h4 className="text-gold font-bold mb-2 border-b border-white/10">{subj} <span className="text-xs text-gray-400 ml-2">(累計投入: {data.totalTime} 分鐘)</span></h4>
+                                    {data.logs.map((h, i) => (
+                                        <div key={i} className="text-sm text-gray-300 ml-4 mb-1 flex justify-between">
+                                            <span>{h.item}</span>
+                                            <span className="text-xs text-gray-500">{h.details}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            ))}
+                            {data.adventure_log.length === 0 && <div className="text-gray-500 text-center">暫無紀錄</div>}
+                        </div>
+                    </div>
+                );
+            };
+
+            // --- 🏪 Tab 5: 祕法集市 ---
+            const ShopView = () => {
+                const [activeSubTab, setActiveSubTab] = useState('market'); 
+                const [editMode, setEditMode] = useState(false);
+                const [editItem, setEditItem] = useState(null); // ID of item being edited
+                const [newItem, setNewItem] = useState({ name: "", cost: 100, currency: "mithril", desc: "" });
+
+                const buy = (item) => {
+                    const key = `coins_${item.currency}`;
+                    const currentBalance = Number(data.profile[key]);
+                    const itemCost = Number(item.cost);
+
+                    if(currentBalance >= itemCost) {
+                        if(confirm(`購買 ${item.name}?`)) {
+                            const newInv = { ...data.inventory };
+                            newInv[item.id] = (newInv[item.id] || 0) + 1;
+                            setData(prev => ({
+                                ...prev,
+                                profile: { ...prev.profile, [key]: currentBalance - itemCost },
+                                inventory: newInv,
+                                history: [{ date: new Date().toLocaleString(), item: `購買: ${item.name}`, cost: `-${itemCost} ${item.currency}`, type: 'expense' }, ...prev.history]
+                            }));
+                            showToast("交易成功", "gift");
+                        }
+                    } else showToast("餘額不足", "ban");
+                };
+
+                const updateShopItem = (id, field, val) => {
+                    setData(p => ({...p, shop: p.shop.map(i => i.id === id ? { ...i, [field]: val } : i)}));
+                };
+
+                const addItem = () => {
+                    setData(p => ({...p, shop: [...p.shop, {id: Date.now(), ...newItem}]}));
+                    setNewItem({ name: "", cost: 100, currency: "mithril", desc: "" });
+                    soundEngine.playSFX('success');
+                };
+
+                const useItem = (itemId) => {
+                    const item = data.shop.find(i => i.id == itemId);
+                    if(!item) return;
+                    if(item.effect === 'rest_day') {
+                        setData(p => ({ ...p, profile: { ...p.profile, day_type: "🏖️ 假期" } }));
+                        showToast("已使用休息卷！今日目標歸零", "umbrella-beach");
+                    } else {
+                        showToast("道具已使用", "magic");
+                    }
+                    const newInv = { ...data.inventory };
+                    newInv[itemId]--;
+                    if(newInv[itemId] <= 0) delete newInv[itemId];
+                    setData(p => ({ ...p, inventory: newInv }));
+                };
+
+                return (
+                    <div className="space-y-6">
+                        <div className="flex gap-4 border-b border-white/10 pb-4 justify-between">
+                            <div className="flex gap-4">
+                                <button onClick={() => setActiveSubTab('market')} className={`text-xl font-bold ${activeSubTab==='market' ? 'text-gold border-b-2 border-gold' : 'text-gray-400'}`}>祕法集市</button>
+                                <button onClick={() => setActiveSubTab('inventory')} className={`text-xl font-bold ${activeSubTab==='inventory' ? 'text-gold border-b-2 border-gold' : 'text-gray-400'}`}>我的背包</button>
+                            </div>
+                            <button onClick={() => setEditMode(!editMode)} className="text-gray-500 text-sm">🛠️ 老闆模式</button>
+                        </div>
+
+                        {activeSubTab === 'market' && (
+                            <div>
+                                {editMode && (
+                                    <div className="arcane-panel p-4 mb-4 border-dashed border-gold/30">
+                                        <div className="flex gap-2">
+                                            <input className="magic-input p-2 rounded" placeholder="商品名" value={newItem.name} onChange={e => setNewItem({...newItem, name: e.target.value})} />
+                                            <input className="magic-input p-2 rounded w-24" type="number" placeholder="價格" value={newItem.cost} onChange={e => setNewItem({...newItem, cost: Number(e.target.value)})} />
+                                            <input className="magic-input p-2 rounded flex-1" placeholder="簡介" value={newItem.desc} onChange={e => setNewItem({...newItem, desc: e.target.value})} />
+                                            <button onClick={addItem} className="btn-primary px-4 rounded">上架</button>
+                                        </div>
+                                    </div>
+                                )}
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                    {data.shop.map(item => (
+                                        <div key={item.id} className="arcane-panel relative group h-56 flex flex-col justify-between p-5">
+                                            <div className="relative z-10">
+                                                {editMode ? (
+                                                    <>
+                                                        <input className="bg-transparent border-b border-white/20 w-full mb-1 text-white font-bold" value={item.name} onChange={e => updateShopItem(item.id, 'name', e.target.value)} />
+                                                        <textarea className="bg-transparent border border-white/10 w-full text-xs text-gray-400 h-16 resize-none" value={item.desc} onChange={e => updateShopItem(item.id, 'desc', e.target.value)} />
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <div className="font-bold text-white text-lg mb-1">{item.name}</div>
+                                                        <div className="text-sm text-gray-400 h-12 overflow-hidden">{item.desc}</div>
+                                                    </>
+                                                )}
+                                            </div>
+                                            
+                                            <div className="flex justify-between items-end relative z-20 pt-2 border-t border-white/5">
+                                                <div className={`font-bold text-lg ${CURRENCIES[item.currency].color} flex items-center gap-1`}>
+                                                    {editMode ? <input type="number" className="w-16 bg-black text-white" value={item.cost} onChange={e=>updateShopItem(item.id, 'cost', Number(e.target.value))} /> : item.cost} 
+                                                    <i className={`fa-solid ${CURRENCIES[item.currency].icon}`}></i>
+                                                </div>
+                                                
+                                                {editMode ? (
+                                                    <button onClick={() => setData(p => ({...p, shop: p.shop.filter(i => i.id !== item.id)}))} className="text-red-400 hover:text-red-200 z-50 cursor-pointer relative"><i className="fa-solid fa-trash"></i></button>
+                                                ) : (
+                                                    // FIX: Highest Z-Index for Buy Button
+                                                    <button 
+                                                        onClick={(e) => { 
+                                                            e.stopPropagation(); 
+                                                            e.preventDefault(); 
+                                                            buy(item); 
+                                                        }} 
+                                                        className="relative z-50 bg-gradient-to-r from-gold/20 to-gold/40 hover:from-gold hover:to-yellow-300 hover:text-black border border-gold/50 text-gold px-6 py-2 rounded-full font-bold shadow-lg transition-all active:scale-95 cursor-pointer pointer-events-auto"
+                                                    >
+                                                        購買
+                                                    </button>
+                                                )}
+                                            </div>
+                                            <div className="absolute top-2 right-2 text-xs text-gray-500 z-10">已持有: {data.inventory[item.id] || 0}</div>
+                                            
+                                            {/* Decoration */}
+                                            <div className="absolute inset-0 bg-gradient-to-br from-yellow-500/5 to-transparent rotate-12 opacity-0 group-hover:opacity-100 transition duration-500 pointer-events-none z-0"></div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {activeSubTab === 'inventory' && (
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                {Object.keys(data.inventory).length > 0 ? Object.entries(data.inventory).map(([id, count]) => {
+                                    const item = data.shop.find(i => i.id == id) || { name: "未知物品", desc: "" };
+                                    return (
+                                        <div key={id} className="arcane-panel p-4 flex justify-between items-center">
+                                            <div>
+                                                <div className="font-bold text-white">{item.name}</div>
+                                                <div className="text-xs text-gray-400">持有: {count}</div>
+                                            </div>
+                                            <button onClick={() => useItem(id)} className="px-3 py-1 bg-purple-600 hover:bg-purple-500 rounded text-sm text-white">使用</button>
+                                        </div>
+                                    );
+                                }) : <div className="text-gray-500 col-span-3 text-center py-10">背包空空如也</div>}
+                            </div>
+                        )}
+                    </div>
+                );
+            };
+
+            // --- 🪙 Tab 6: 交易紀年 (History) ---
+            const HistoryView = () => (
+                <div className="arcane-panel p-6 h-[600px] overflow-y-auto">
+                    <h3 className="text-xl font-title text-fantasy mb-4">交易紀年 (購買紀錄)</h3>
+                    <div className="space-y-2">
+                        {data.history.map((h, i) => (
+                            <div key={i} className="flex justify-between p-3 bg-black/30 rounded border border-white/5">
+                                <div><div className="text-gray-200">{h.item}</div><div className="text-xs text-gray-500">{h.date}</div></div>
+                                <div className="font-mono font-bold text-red-400">{h.cost}</div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            );
+
+            // --- 🌌 Tab 7: 星穹殿堂 (Hall) ---
+            const HallView = () => {
+                const [newAchv, setNewAchv] = useState({ name: "", desc: "", reward: 10, currency: "seed" });
+                const toggleAchv = (id) => {
+                    const updated = data.achievements.map(a => {
+                        if(a.id === id) {
+                            if(!a.completed) {
+                                setData(prev => ({
+                                    ...prev,
+                                    profile: { ...prev.profile, [`coins_${a.currency}`]: prev.profile[`coins_${a.currency}`] + a.reward },
+                                    adventure_log: [{ date: new Date().toISOString().split('T')[0], displayDate: new Date().toLocaleString(), item: `成就: ${a.name}`, cost: `+${a.reward}啟`, type: 'income', details: '成就解鎖' }, ...prev.adventure_log]
+                                }));
+                                soundEngine.playFanfare();
+                                showToast("榮耀解鎖！", "trophy");
+                            }
+                            return { ...a, completed: !a.completed };
+                        }
+                        return a;
+                    });
+                    setData(prev => ({ ...prev, achievements: updated }));
+                };
+                const addAchv = () => {
+                    if(!newAchv.name) return;
+                    setData(p => ({...p, achievements: [...p.achievements, { id: Date.now(), ...newAchv, completed: false }]}));
+                    setNewAchv({ name: "", desc: "", reward: 10, currency: "seed" });
+                };
+
+                return (
+                    <div className="space-y-6">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
+                            <div className="arcane-panel p-4 border-t-2 border-blue-500"><h4 className="text-blue-300 text-xs mb-1 font-bold">秘銀儲量</h4><div className="text-3xl font-bold font-mono">{Math.floor(data.profile.coins_mithril)}</div></div>
+                            <div className="arcane-panel p-4 border-t-2 border-purple-500"><h4 className="text-purple-300 text-xs mb-1 font-bold">完成任務</h4><div className="text-3xl font-bold font-mono">{data.adventure_log.length}</div></div>
+                            <div className="arcane-panel p-4 border-t-2 border-gold"><h4 className="text-gold text-xs mb-1 font-bold">目前境界</h4><div className="text-xl font-bold font-title">{titleData.current}</div></div>
+                        </div>
+                        <div className="arcane-panel p-6">
+                            <h3 className="text-xl font-title text-gold mb-4"><i className="fa-solid fa-trophy"></i> 榮耀刻印 (成就管理)</h3>
+                            <div className="flex flex-wrap gap-2 mb-6 bg-black/30 p-3 rounded-xl border border-white/5">
+                                <input className="magic-input p-2 rounded flex-1" placeholder="成就名稱" value={newAchv.name} onChange={e => setNewAchv({...newAchv, name: e.target.value})} />
+                                <input className="magic-input p-2 rounded flex-[2]" placeholder="描述" value={newAchv.desc} onChange={e => setNewAchv({...newAchv, desc: e.target.value})} />
+                                <input className="magic-input p-2 rounded w-20 text-center" type="number" value={newAchv.reward} onChange={e => setNewAchv({...newAchv, reward: Number(e.target.value)})} />
+                                <button onClick={addAchv} className="bg-green-700 px-4 rounded text-white">新增</button>
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-[400px] overflow-y-auto">
+                                {data.achievements.map(achv => (
+                                    <div key={achv.id} className={`p-4 rounded-xl border flex justify-between items-center transition-all ${achv.completed ? 'bg-green-900/20 border-green-500/50' : 'bg-black/30 border-white/10'}`}>
+                                        <div><div className={`font-bold ${achv.completed ? 'text-green-400' : 'text-gray-300'}`}>{achv.name}</div><div className="text-sm text-gray-500">{achv.desc}</div><div className="text-xs text-gold mt-1">獎勵: {achv.reward}</div></div>
+                                        <button onClick={() => toggleAchv(achv.id)} className={`text-2xl ${achv.completed ? 'text-green-400' : 'text-gray-600'}`}><i className={`fa-regular ${achv.completed ? 'fa-square-check' : 'fa-square'}`}></i></button>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                );
+            };
+
+            // --- ⚙️ Tab 8: 系統設定 ---
+            const SystemView = () => {
+                const [editRules, setEditRules] = useState(false);
+                const [tempRules, setTempRules] = useState(data.rules);
+
+                const saveRules = () => {
+                    setData(p => ({...p, rules: tempRules}));
+                    setEditRules(false);
+                    showToast("法則已重寫", "scroll");
+                };
+
+                const handleMusicUpload = (e) => {
+                    const file = e.target.files[0];
+                    if(file){
+                        const url = URL.createObjectURL(file);
+                        setTempRules({...tempRules, music_url: url});
+                        if(audioRef.current) {
+                            audioRef.current.src = url;
+                            audioRef.current.play();
+                            showToast("音樂載入", "music");
+                        }
+                    }
+                }
+
+                return (
+                    <div className="space-y-6">
+                        <div className="arcane-panel p-8 text-center max-w-md mx-auto">
+                            <h3 className="text-xl font-title text-fantasy mb-6">系統核心</h3>
+                            
+                            {/* 音樂檔案上傳 */}
+                            <div className="bg-black/40 p-4 rounded-xl mb-6 text-left border border-gold/30 shadow-lg">
+                                <h4 className="text-gold text-sm font-bold mb-3 flex items-center gap-2"><i className="fa-solid fa-music"></i> 背景音樂設定</h4>
+                                <div className="flex gap-2 mb-2">
+                                    <label className="bg-gradient-to-r from-purple-800 to-indigo-800 hover:from-purple-700 hover:to-indigo-700 text-white px-6 py-3 rounded text-sm cursor-pointer flex-1 text-center transition font-bold shadow-md border border-purple-500/50">
+                                        <i className="fa-solid fa-file-audio mr-2"></i> 點擊上傳音樂檔案 (MP3)
+                                        <input type="file" accept="audio/*" className="hidden" onChange={handleMusicUpload} />
+                                    </label>
+                                </div>
+                                {tempRules.music_url && tempRules.music_url.startsWith('blob:') && <p className="text-xs text-green-400 mb-2"><i className="fa-solid fa-check"></i> 已載入本地檔案</p>}
+                                <div className="mt-4 flex items-center gap-2">
+                                    <label className="text-xs text-gray-400">音量</label>
+                                    <input type="range" min="0" max="1" step="0.1" value={tempRules.music_volume || 0.3} onChange={e => {
+                                        setTempRules({...tempRules, music_volume: parseFloat(e.target.value)});
+                                        if(audioRef.current) audioRef.current.volume = parseFloat(e.target.value);
+                                    }} className="flex-1 h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer" />
+                                </div>
+                            </div>
+
+                            <button onClick={() => { 
+                                soundEngine.playSFX('click'); 
+                                const blob = new Blob([JSON.stringify(data)], {type: "application/json"}); 
+                                const url = URL.createObjectURL(blob); 
+                                const a = document.createElement('a'); a.href = url; a.download = `save_${new Date().toISOString().split('T')[0]}.json`; a.click(); 
+                            }} className="w-full py-3 bg-blue-900/50 hover:bg-blue-800 rounded border border-blue-500/30 text-blue-100 mb-4">下載存檔</button>
+                            <div className="relative mb-8">
+                                <button className="w-full py-3 bg-slate-800 hover:bg-slate-700 rounded border border-white/10 text-gray-300">讀取存檔</button>
+                                <input type="file" className="absolute inset-0 opacity-0 cursor-pointer" onChange={e => { 
+                                    const file = e.target.files[0]; 
+                                    if(file) { 
+                                        const r = new FileReader(); 
+                                        r.onload = (ev) => { 
+                                            try { setData(JSON.parse(ev.target.result)); showToast("讀取成功"); } catch { showToast("錯誤", "times"); } 
+                                        }; 
+                                        r.readAsText(file); 
+                                    } 
+                                }} />
+                            </div>
+                            <button onClick={() => { soundEngine.playSFX('error'); confirm("確定重置？") && setData(INITIAL_DATA); }} className="text-red-500 hover:text-red-400 text-sm">重置數據</button>
+                        </div>
+
+                        {/* 💰 經濟法則編輯器 */}
+                        <div className="arcane-panel p-6">
+                            <div className="flex justify-between items-center mb-4 border-b border-white/10 pb-2">
+                                <h3 className="text-xl font-title text-gold"><i className="fa-solid fa-scale-balanced"></i> 經濟法則 (貨幣獲取規則)</h3>
+                                <button onClick={() => editRules ? saveRules() : setEditRules(true)} className="bg-slate-700 px-3 py-1 rounded text-sm">{editRules?'保存':'編輯'}</button>
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="col-span-2 text-gold text-xs font-bold border-b border-white/10 pt-2">基礎產量</div>
+                                <div><label className="text-xs text-gray-400">秘銀產量 (每分鐘)</label><input type="number" className="magic-input w-full p-2 rounded" disabled={!editRules} value={tempRules.money_per_min} onChange={e=>setTempRules({...tempRules, money_per_min: Number(e.target.value)})}/></div>
+                                <div><label className="text-xs text-gray-400">討厭任務加成 (倍率)</label><input type="number" className="magic-input w-full p-2 rounded" disabled={!editRules} value={tempRules.hate_mult} onChange={e=>setTempRules({...tempRules, hate_mult: Number(e.target.value)})}/></div>
+                                
+                                <div className="col-span-2 text-gold text-xs font-bold border-b border-white/10 pt-2">難度係數</div>
+                                <div><label className="text-xs text-green-400">簡單係數</label><input type="number" className="magic-input w-full p-2 rounded" disabled={!editRules} value={tempRules.diff_easy} onChange={e=>setTempRules({...tempRules, diff_easy: Number(e.target.value)})}/></div>
+                                <div><label className="text-xs text-yellow-400">中等係數</label><input type="number" className="magic-input w-full p-2 rounded" disabled={!editRules} value={tempRules.diff_med} onChange={e=>setTempRules({...tempRules, diff_med: Number(e.target.value)})}/></div>
+                                <div><label className="text-xs text-orange-400">困難係數</label><input type="number" className="magic-input w-full p-2 rounded" disabled={!editRules} value={tempRules.diff_hard} onChange={e=>setTempRules({...tempRules, diff_hard: Number(e.target.value)})}/></div>
+                                <div><label className="text-xs text-red-400">極難係數</label><input type="number" className="magic-input w-full p-2 rounded" disabled={!editRules} value={tempRules.diff_ext} onChange={e=>setTempRules({...tempRules, diff_ext: Number(e.target.value)})}/></div>
+                                
+                                <div className="col-span-2 text-gold text-xs font-bold border-b border-white/10 pt-2">特殊貨幣</div>
+                                <div><label className="text-xs text-yellow-500">星耀門檻 (分鐘)</label><input type="number" className="magic-input w-full p-2 rounded" disabled={!editRules} value={tempRules.star_threshold} onChange={e=>setTempRules({...tempRules, star_threshold: Number(e.target.value)})}/></div>
+                                <div><label className="text-xs text-cyan-400">漣漪獎勵 (打卡)</label><input type="number" className="magic-input w-full p-2 rounded" disabled={!editRules} value={tempRules.checkin_reward} onChange={e=>setTempRules({...tempRules, checkin_reward: Number(e.target.value)})}/></div>
+                            </div>
+                        </div>
+                    </div>
+                );
+            };
+
+            // --- 🔮 境界預覽 Modal ---
+            const RankModal = ({ onClose }) => {
+                const [editMode, setEditMode] = useState(false);
+                const [tempTitles, setTempTitles] = useState(data.titles);
+                return (
+                    <div className="fixed inset-0 bg-black/90 backdrop-blur-md z-50 flex items-center justify-center p-4 animate-float" onClick={onClose}>
+                        <div className="arcane-panel max-w-2xl w-full p-8 relative border-gold/30" onClick={e => e.stopPropagation()}>
+                            <button onClick={onClose} className="absolute top-4 right-4 text-gray-400 hover:text-white"><i className="fa-solid fa-times fa-xl"></i></button>
+                            <div className="flex justify-between items-center mb-8 border-b border-white/10 pb-4">
+                                <h2 className="text-3xl font-fantasy text-gold text-center">境界晉升階梯</h2>
+                                <button onClick={() => { if(editMode) setData(p => ({...p, titles: tempTitles})); setEditMode(!editMode); }} className="text-sm bg-slate-700 px-3 py-1 rounded">{editMode?'保存':'編輯規則'}</button>
+                            </div>
+                            <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar">
+                                {tempTitles.map((t, i) => (
+                                    <div key={i} className="p-4 rounded-xl border flex items-center gap-4 border-white/5 bg-black/30">
+                                        <div className="text-2xl w-12 text-center">{i < titleData.idx ? '✅' : (i === titleData.idx ? '🧙‍♂️' : '🔒')}</div>
+                                        <div className="flex-1"><div className="font-bold text-lg font-fantasy text-gold">{t.name}</div><div className="text-xs opacity-60 font-mono">需求秘銀: {editMode ? <input type="number" className="bg-black border p-1 w-24" value={t.req} onChange={e => { const n = [...tempTitles]; n[i].req = Number(e.target.value); setTempTitles(n); }} /> : t.req}</div></div>
+                                        {i === titleData.idx && <div className="text-xs text-gold font-bold px-2 py-1 bg-gold/10 rounded">當前境界</div>}
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                );
+            };
+
+            // --- 侧边栏 ---
+            const Sidebar = () => {
+                const [showRanks, setShowRanks] = useState(false);
+                const [showHelp, setShowHelp] = useState(false);
+                const target = ["🏖️ 假期", "🤒 病假"].includes(data.profile.day_type) ? 0 : (data.profile.day_type === "📅 週末" ? 120 : 60);
+                
+                const handleCheckIn = () => {
+                    if(data.profile.today_coins >= target) {
+                        const today = new Date().toISOString().split('T')[0];
+                        if(data.profile.check_in_history.includes(today)) { soundEngine.playSFX('error'); return showToast("已打卡", "check"); }
+                        setData(p => ({
+                            ...p, profile: { ...p.profile, streak: p.profile.streak+1, checked_in: true, coins_ripple: p.profile.coins_ripple+data.rules.checkin_reward, check_in_history: [...p.profile.check_in_history, today] }
+                        }));
+                        soundEngine.playFanfare();
+                        showToast("打卡成功！", "water");
+                    } else { soundEngine.playSFX('error'); showToast("魔力未達標", "ban"); }
+                };
+
+                const endDay = () => {
+                    setModal({ type: 'end_day_summary' });
+                    soundEngine.playFanfare();
+                };
+
+                return (
+                    <div className="w-full lg:w-80 flex-shrink-0 space-y-6">
+                        {showRanks && <RankModal onClose={() => setShowRanks(false)} />}
+                        
+                        <div className="arcane-panel p-6 text-center pt-10 relative overflow-hidden border-t-2 border-t-gold/50 shadow-[0_0_30px_rgba(0,0,0,0.5)]">
+                            <div className="absolute top-2 right-2 text-xs text-gray-500 font-mono tracking-widest">{data.userName}</div>
+                            <div className="w-28 h-28 mx-auto mb-4 soul-avatar animate-pulse-glow"><i className="fa-solid fa-user-astronaut text-5xl text-gold drop-shadow-lg"></i></div>
+                            <h2 className="text-2xl font-fantasy text-gold-glow font-bold mb-1">{titleData.current}</h2>
+                            <p className="text-xs text-accent mb-4 tracking-widest font-bold">Level {titleData.level}</p>
+                            <div className="relative h-2 bg-black rounded-full overflow-hidden border border-white/10 mb-2 mx-2"><div className="absolute top-0 left-0 h-full bg-gradient-to-r from-gold to-orange-500 transition-all duration-1000 shadow-[0_0_10px_#FFD700]" style={{width: `${titleData.progress}%`}}></div></div>
+                            <div className="flex justify-between text-[10px] text-gray-400 px-2 mb-4"><span>{Math.floor(data.profile.coins_mithril%1000)} XP</span><span>Next: {titleData.nextReq}</span></div>
+                            <button onClick={() => setShowRanks(true)} className="w-full py-1.5 text-xs border border-white/10 bg-white/5 rounded hover:bg-white/10 text-gray-300 transition flex items-center justify-center gap-2 hover:border-gold/30 hover:text-gold"><i className="fa-solid fa-eye"></i> 預覽與編輯境界</button>
+                        </div>
+
+                        <div className="arcane-panel p-4 relative">
+                            <div className="flex justify-between items-center mb-3 border-b border-white/5 pb-2">
+                                <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest">次元行囊</h3>
+                                <div className="flex gap-2">
+                                    <button onClick={() => setEditingCurrency(!editingCurrency)} className={`text-xs ${editingCurrency?'text-green-400':'text-gray-500 hover:text-white'}`}><i className="fa-solid fa-pen"></i></button>
+                                    <button onClick={() => setShowHelp(!showHelp)} className="text-xs text-gray-500 hover:text-white"><i className="fa-solid fa-circle-question"></i></button>
+                                </div>
+                            </div>
+                            
+                            {showHelp && <div className="absolute inset-0 bg-black/95 z-20 p-4 text-xs text-gray-300 rounded-xl" onClick={() => setShowHelp(false)}>{Object.values(CURRENCIES).map(c => <div key={c.name} className="mb-2"><span className="text-gold">{c.icon}</span> <span className="font-bold">{c.name}</span><br/>{c.desc}</div>)}</div>}
+                            
+                            <div className="space-y-2">
+                                {Object.entries(CURRENCIES).map(([k, v]) => (
+                                    <div key={k} className="flex justify-between items-center text-sm p-2 rounded hover:bg-white/5 transition">
+                                        <span className={`flex items-center gap-2 ${v.color} font-bold`}><i className={`fa-solid ${v.icon} w-5 text-center`}></i> {v.name}</span>
+                                        {editingCurrency ? (
+                                            <input type="number" className="bg-black border border-white/20 w-20 text-right rounded px-1 text-white" value={Math.floor(data.profile[`coins_${k}`])} onChange={(e) => setData(p => ({...p, profile: {...p.profile, [`coins_${k}`]: Number(e.target.value)}}))} />
+                                        ) : (
+                                            <span className="font-mono font-bold text-white text-shadow">{Math.floor(data.profile[`coins_${k}`])}</span>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        <div className="arcane-panel p-4 animate-pulse-glow border border-accent/30">
+                            <div className="flex justify-between items-center mb-2"><span className="font-bold text-white text-sm">每日狀態</span><select className="bg-black border border-white/20 text-xs rounded px-1 text-gray-300 outline-none hover:border-accent transition" value={data.profile.day_type} onChange={e => setData(p => ({...p, profile: {...p.profile, day_type: e.target.value}}))}>{["🏫 上學日", "📅 週末", "🏖️ 假期", "🤒 病假"].map(o => <option key={o} value={o}>{o}</option>)}</select></div>
+                            {target > 0 ? (<div className="space-y-3"><div className="flex justify-between text-xs text-gray-400"><span>收集秘銀</span><span className="text-white">{Math.floor(data.profile.today_coins)} / {target}</span></div><div className="h-2 bg-black rounded-full overflow-hidden border border-white/10"><div className={`h-full transition-all duration-500 ${data.profile.today_coins >= target ? 'bg-green-500 shadow-[0_0_10px_#10B981]' : 'bg-blue-600'}`} style={{width: `${Math.min((data.profile.today_coins/target)*100, 100)}%`}}></div></div><button onClick={handleCheckIn} disabled={data.profile.checked_in} className={`w-full py-2 rounded text-sm font-bold transition-all shadow-lg ${data.profile.checked_in ? 'bg-white/10 text-gray-500 cursor-not-allowed' : 'bg-gradient-to-r from-gold to-orange-600 text-black hover:brightness-110 hover:shadow-[0_0_15px_rgba(255,215,0,0.4)]'}`}>{data.profile.checked_in ? <span><i className="fa-solid fa-check"></i> 本日已簽到</span> : <span><i className="fa-solid fa-bolt"></i> 注入魔力</span>}</button></div>) : <div className="text-center text-xs text-gray-500 py-2 border border-dashed border-white/10 rounded">今日休息</div>}
+                            <button onClick={endDay} className="w-full mt-3 py-2 bg-purple-900/50 hover:bg-purple-800 border border-purple-500/30 rounded text-purple-200 text-sm transition">🌙 今日旅途結算</button>
+                        </div>
+                        
+                        {/* 左下角音量控制 */}
+                        <div className="fixed bottom-4 left-4 z-50">
+                             <button onClick={() => {
+                                 if(audioRef.current.paused) audioRef.current.play();
+                                 else audioRef.current.pause();
+                             }} className="bg-black/50 p-2 rounded-full text-white hover:text-gold transition border border-white/10">
+                                <i className="fa-solid fa-music"></i>
+                             </button>
+                        </div>
+                    </div>
+                );
+            };
+
+            // --- Modal (日曆詳情) ---
+            const CalendarModal = ({ info, onClose }) => (
+                <div className="fixed inset-0 bg-black/90 backdrop-blur-md z-50 flex items-center justify-center p-4 animate-float" onClick={onClose}>
+                    <div className="arcane-panel max-w-md w-full p-6 relative border-gold/30 shadow-[0_0_50px_rgba(139,92,246,0.3)]" onClick={e => e.stopPropagation()}>
+                        <button onClick={onClose} className="absolute top-4 right-4 text-gray-500 hover:text-white transition"><i className="fa-solid fa-times fa-lg"></i></button>
+                        <h3 className="text-2xl font-title text-fantasy mb-4 border-b border-white/10 pb-2">{info.dateStr}</h3>
+                        <div className="space-y-4">
+                            <div className="bg-black/40 p-4 rounded text-center">
+                                <div className="text-sm text-gray-400 mb-1">當日總收益</div>
+                                <div className="text-3xl text-gold font-bold">{Math.floor(info.income)} <span className="text-sm">秘銀</span></div>
+                            </div>
+                            <div className="max-h-60 overflow-y-auto custom-scrollbar pr-1">
+                                <div className="text-white font-bold mb-2 text-sm border-b border-white/5 pb-1">📜 冒險紀錄</div>
+                                {info.logs.length ? info.logs.map((l,i) => (
+                                    <div key={i} className="text-xs text-gray-300 bg-white/5 p-2 mb-1 rounded border border-white/5 flex justify-between">
+                                        <span>{l.item}</span>
+                                        <span className="text-gold">{l.cost}</span>
+                                    </div>
+                                )) : <div className="text-gray-500 text-xs italic text-center py-2">無紀錄</div>}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+
+            // --- 首次進入歡迎頁 ---
+            if (!data.setupComplete && started) {
+                return (
+                    <div className="fixed inset-0 z-50 bg-black flex items-center justify-center p-4">
+                        <div className="arcane-panel max-w-lg w-full p-8 text-center animate-fade-in border-2 border-gold">
+                            <h1 className="text-4xl font-fantasy text-gold-glow mb-4">靈魂綁定儀式</h1>
+                            <p className="text-gray-300 mb-6 leading-relaxed">歡迎來到星域主宰系統。你是被選中的旅人。<br/>請告知你的真名，以便銘刻於時光織錦之上。</p>
+                            <input className="magic-input w-full p-3 rounded text-center text-xl mb-6 border-gold/50" placeholder="輸入你的名字..." onKeyDown={(e) => { if(e.key === 'Enter' && e.target.value) { setData(p => ({ ...p, userName: e.target.value, setupComplete: true })); soundEngine.playSFX('success'); } }} />
+                            <p className="text-xs text-gray-500">按 Enter 完成儀式</p>
+                        </div>
+                    </div>
+                );
+            }
+
+            // --- 啟動頁面 ---
+            if (!started) {
+                return (
+                    <div className="h-screen flex flex-col items-center justify-center relative z-20">
+                        <div className="text-6xl md:text-8xl font-fantasy text-gold-glow mb-8 animate-pulse text-center tracking-widest drop-shadow-[0_0_30px_rgba(255,215,0,0.5)]">
+                            星域主宰<br/><span className="text-2xl font-sans text-accent tracking-[1em] block mt-4">ASTRAL MASTER</span>
+                        </div>
+                        <button onClick={startSystem} className="px-12 py-5 bg-transparent border-2 border-gold text-gold font-bold text-xl rounded-full hover:bg-gold hover:text-black transition duration-500 shadow-[0_0_50px_rgba(255,215,0,0.4)] animate-float"><i className="fa-solid fa-play"></i> 啟動魔法陣</button>
+                    </div>
+                );
+            }
+
+            // --- 主要內容 ---
+            return (
+                <div className="min-h-screen p-4 lg:p-8 flex flex-col lg:flex-row gap-8 max-w-[1600px] mx-auto relative z-10 animate-fade-in">
+                    <audio ref={audioRef} loop src={data.rules.music_url || "https://cdn.pixabay.com/audio/2022/05/27/audio_1808fbf07a.mp3"} />
+                    
+                    {toast && <div className="fixed top-6 left-1/2 transform -translate-x-1/2 z-50 arcane-panel px-6 py-3 rounded-full flex items-center gap-3 border border-gold text-gold animate-bounce shadow-[0_0_30px_rgba(255,215,0,0.4)]"><i className={`fa-solid fa-${toast.icon} text-xl`}></i> <span className="font-bold">{toast.msg}</span></div>}
+                    {modal && modal.type === 'day_detail' && <CalendarModal info={modal.data} onClose={() => setModal(null)} />}
+                    {modal && modal.type === 'daily_welcome' && (
+                        <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4">
+                            <div className="arcane-panel p-8 text-center border-gold/50 border">
+                                <h3 className="text-3xl text-gold mb-4">歡迎回來，{data.userName}</h3>
+                                <p className="text-xl text-white italic mb-6">"{modal.quote}"</p>
+                                <button onClick={() => setModal(null)} className="btn-primary px-8 py-2 rounded-full">開始冒險</button>
+                            </div>
+                        </div>
+                    )}
+                    {modal && modal.type === 'end_day_summary' && (
+                        <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4">
+                            <div className="arcane-panel p-8 text-center border-gold border shadow-[0_0_50px_rgba(255,215,0,0.5)]">
+                                <h3 className="text-4xl font-fantasy text-gold mb-4">旅途結算</h3>
+                                <div className="text-6xl mb-6">🎉</div>
+                                <div className="text-2xl text-white mb-2">今日獲得 <span className="text-gold font-bold">{Math.floor(data.profile.today_coins)}</span> 秘銀</div>
+                                <button onClick={() => setModal(null)} className="btn-primary px-8 py-2 rounded-full mt-6">明日再戰</button>
+                            </div>
+                        </div>
+                    )}
+
+                    <Sidebar />
+
+                    <div className="flex-1 flex flex-col gap-6 min-w-0">
+                        {/* 導航 (順序修正) */}
+                        <div className="arcane-panel p-2 flex overflow-x-auto gap-2 scrollbar-hide border-b-2 border-accent/30">
+                            {[
+                                { id: "calendar", icon: "calendar-days", label: "時光織錦" },
+                                { id: "goals", icon: "compass", label: "命途星圖" },
+                                { id: "tasks", icon: "scroll", label: "征途繪卷" },
+                                { id: "adventure_log", icon: "book-journal-whills", label: "冒險手札" },
+                                { id: "shop", icon: "store", label: "祕法集市" },
+                                { id: "history", icon: "clock-rotate-left", label: "交易紀年" },
+                                { id: "hall", icon: "dungeon", label: "星穹殿堂" },
+                                { id: "system", icon: "gears", label: "系統" },
+                            ].map(tab => (
+                                <button key={tab.id} onClick={() => { setActiveTab(tab.id); soundEngine.playSFX('click'); }} className={`px-5 py-3 rounded-lg font-bold whitespace-nowrap transition flex items-center gap-2 ${activeTab === tab.id ? 'bg-gradient-to-r from-indigo-900 to-purple-900 text-white border border-accent shadow-[0_0_20px_rgba(139,92,246,0.4)]' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}>
+                                    <i className={`fa-solid fa-${tab.icon}`}></i> {tab.label}
+                                </button>
+                            ))}
+                        </div>
+
+                        <div className="min-h-[500px]">
+                            {activeTab === "calendar" && <CalendarView />}
+                            {activeTab === "goals" && <GoalView />}
+                            {activeTab === "tasks" && <TaskView />}
+                            {activeTab === "adventure_log" && <AdventureLogView />}
+                            {activeTab === "shop" && <ShopView />}
+                            {activeTab === "history" && <HistoryView />}
+                            {activeTab === "hall" && <HallView />}
+                            {activeTab === "system" && <SystemView />}
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
