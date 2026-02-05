@@ -148,7 +148,7 @@
         .btn-primary {
             background: linear-gradient(135deg, #4C1D95 0%, #6D28D9 100%);
             border: 1px solid #8B5CF6; color: white;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.3); transition: all 0.2s; cursor: pointer; position: relative; z-index: 20;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3); transition: all 0.2s; cursor: pointer; position: relative; z-index: 50;
         }
         .btn-primary:hover {
             background: linear-gradient(135deg, #5B21B6 0%, #7C3AED 100%);
@@ -232,11 +232,13 @@
         };
 
         const DEFAULT_RULES = {
-            money_per_min: 10, // 預設調高一點
+            money_per_min: 10, 
             diff_easy: 1, diff_med: 1.5, diff_hard: 2, diff_ext: 3,
             hate_mult: 1.2, star_threshold: 60, checkin_reward: 1, achv_reward: 10,
-            music_url: "https://cdn.pixabay.com/audio/2022/05/27/audio_1808fbf07a.mp3", 
-            music_volume: 0.3
+            reset_hour: 4, // 凌晨4點重置
+            daily_target_def: 300,
+            weekly_target_def: 2000,
+            music_url: null, music_volume: 0.3
         };
 
         const INITIAL_DATA = {
@@ -246,10 +248,13 @@
             subjects: ["英文", "中文", "數學", "物理", "化學", "生物", "歷史"],
             rules: DEFAULT_RULES,
             profile: {
-                xp: 0, streak: 0, last_login: "",
+                xp: 0, streak: 0, last_login: "", 
                 coins_mithril: 0, coins_star: 0, coins_ripple: 0, coins_seed: 0, coins_soul: 0,
-                today_coins: 0, day_type: "🏫 上學日", checked_in: false,
-                check_in_history: [] 
+                today_coins: 0, weekly_coins: 0,
+                day_type: "🏫 上學日", checked_in: false,
+                check_in_history: [],
+                custom_daily_target: null,
+                custom_daily_note: "",
             },
             tasks: [],
             goals: [
@@ -270,7 +275,7 @@
         // --- ⚛️ 主程式 ---
         const App = () => {
             const [data, setData] = useState(() => {
-                const saved = localStorage.getItem("isekai_system_v26_ultra");
+                const saved = localStorage.getItem("isekai_system_v2_ultra");
                 const parsed = saved ? JSON.parse(saved) : INITIAL_DATA;
                 if(!parsed.rules) parsed.rules = DEFAULT_RULES;
                 return parsed;
@@ -282,40 +287,57 @@
             const [editingCurrency, setEditingCurrency] = useState(false);
             const audioRef = useRef(null);
 
-            useEffect(() => { localStorage.setItem("isekai_system_v26_ultra", JSON.stringify(data)); }, [data]);
+            useEffect(() => { localStorage.setItem("isekai_system_v2_ultra", JSON.stringify(data)); }, [data]);
 
+            // Logic: Get Logical Date based on Reset Hour
+            const getLogicalDate = () => {
+                const now = new Date();
+                const resetHour = data.rules.reset_hour || 0;
+                if (now.getHours() < resetHour) {
+                    now.setDate(now.getDate() - 1);
+                }
+                return now.toISOString().split('T')[0];
+            };
+
+            // Daily & Weekly Reset Logic
             useEffect(() => {
-                const today = new Date().toISOString().split('T')[0];
-                if (data.profile.last_login !== today) {
+                const logicalToday = getLogicalDate();
+                if (data.profile.last_login !== logicalToday) {
+                    // It's a new day
+                    const lastDate = new Date(data.profile.last_login);
+                    const currDate = new Date(logicalToday);
+                    
+                    // Check for weekly reset (Monday)
+                    let newWeeklyCoins = data.profile.weekly_coins;
+                    const dist = (currDate - lastDate) / (1000 * 60 * 60 * 24);
+                    // Simple check: if current day is Monday and last login was not today, or difference is large
+                    if (currDate.getDay() === 1 && data.profile.last_login !== logicalToday) {
+                        newWeeklyCoins = 0;
+                    } else if (dist > 7) {
+                        newWeeklyCoins = 0;
+                    }
+
                     setData(prev => ({
                         ...prev,
                         profile: {
                             ...prev.profile,
-                            last_login: today,
+                            last_login: logicalToday,
                             today_coins: 0,
+                            weekly_coins: newWeeklyCoins,
                             checked_in: false,
-                            day_type: new Date().getDay() % 6 === 0 ? "📅 週末" : "🏫 上學日"
+                            day_type: "🏫 上學日",
+                            custom_daily_target: null, // Reset daily custom target
+                            custom_daily_note: ""
                         }
                     }));
                     if(data.setupComplete) setModal({ type: 'daily_welcome' });
                 }
-            }, []);
-
-            useEffect(() => {
-                if(audioRef.current && started) {
-                    audioRef.current.volume = data.rules.music_volume || 0.3;
-                    if(data.rules.music_url && audioRef.current.src !== data.rules.music_url) {
-                        audioRef.current.src = data.rules.music_url;
-                        audioRef.current.play().catch(e => console.log("Audio prevented", e));
-                    }
-                }
-            }, [data.rules.music_url, data.rules.music_volume, started]);
+            }, [data.rules.reset_hour]);
 
             const startSystem = () => {
                 setStarted(true);
                 soundEngine.init();
                 soundEngine.playFanfare();
-                if(audioRef.current && data.rules.music_url) audioRef.current.play();
             };
 
             const showToast = (msg, icon="check") => {
@@ -351,24 +373,25 @@
                     let income = 0;
                     let logs = [];
                     data.adventure_log.forEach(h => {
-                        if ((h.date === dateStr) && h.type === 'income') {
+                        if (h.date === dateStr && h.type === 'income') {
                             const match = h.cost.match(/(\d+(\.\d+)?)秘/);
                             if(match) income += parseFloat(match[1]);
                             logs.push(h);
                         }
                     });
+                    const ddls = data.goals.filter(g => g.deadline === dateStr);
                     const checkedIn = data.profile.check_in_history.includes(dateStr);
-                    return { dateStr, income, logs, checkedIn };
+                    return { dateStr, income, logs, ddls, checkedIn };
                 };
 
                 return (
                     <div className="space-y-6 animate-fade-in">
                         <div className="flex justify-between items-center bg-black/60 p-4 rounded-xl border border-gold/30 shadow-lg">
-                            <button onClick={() => { setViewDate(new Date(year, month - 1, 1)); soundEngine.playSFX('click'); }} className="text-gold hover:text-white p-2"><i className="fa-solid fa-chevron-left fa-lg"></i></button>
+                            <button onClick={() => setViewDate(new Date(year, month - 1, 1))} className="text-gold hover:text-white p-2"><i className="fa-solid fa-chevron-left fa-lg"></i></button>
                             <h2 className="text-3xl font-fantasy text-gold-glow tracking-widest flex items-center gap-2">
                                 <i className="fa-solid fa-calendar-days text-accent"></i> {year} 年 {month + 1} 月
                             </h2>
-                            <button onClick={() => { setViewDate(new Date(year, month + 1, 1)); soundEngine.playSFX('click'); }} className="text-gold hover:text-white p-2"><i className="fa-solid fa-chevron-right fa-lg"></i></button>
+                            <button onClick={() => setViewDate(new Date(year, month + 1, 1))} className="text-gold hover:text-white p-2"><i className="fa-solid fa-chevron-right fa-lg"></i></button>
                         </div>
                         <div className="grid grid-cols-7 gap-3">
                             {['MON','TUE','WED','THU','FRI','SAT','SUN'].map(d => <div key={d} className="text-center text-gray-400 font-bold uppercase tracking-wider">{d}</div>)}
@@ -376,7 +399,7 @@
                             {Array(daysInMonth).fill(null).map((_, i) => {
                                 const day = i + 1;
                                 const info = getDayData(day);
-                                const isToday = info.dateStr === new Date().toISOString().split('T')[0];
+                                const isToday = info.dateStr === getLogicalDate();
                                 return (
                                     <div key={day} onClick={() => { setModal({ type: 'day_detail', data: info }); soundEngine.playSFX('click'); }}
                                         className={`h-32 arcane-panel p-2 cursor-pointer group transition-all duration-300 hover:scale-[1.05]
@@ -387,8 +410,10 @@
                                             {info.checkedIn && <i className="fa-solid fa-circle-check text-green-400 text-lg animate-pulse"></i>}
                                         </div>
                                         <div className="space-y-1 overflow-hidden">
+                                            {info.ddls.map((g, idx) => (
+                                                <div key={idx} className="text-[10px] bg-red-900/60 text-red-100 px-1 rounded border border-red-500/30 truncate">🎯 {g.name}</div>
+                                            ))}
                                             {info.income > 0 && <div className="text-xs text-blue-300 font-mono flex items-center gap-1"><i className="fa-solid fa-gem text-[10px]"></i> +{Math.floor(info.income)}</div>}
-                                            {info.logs.length > 0 && <div className="text-[9px] text-gray-500">完成 {info.logs.length} 項任務</div>}
                                         </div>
                                     </div>
                                 );
@@ -398,7 +423,7 @@
                 );
             };
 
-            // --- 🔭 Tab 2: 命途星圖 ---
+            // --- 🔭 Tab 2: 命途星圖 (Big Missions) ---
             const GoalView = () => {
                 const [viewMode, setViewMode] = useState('kanban'); 
                 const [newGoal, setNewGoal] = useState({ subject: "", name: "", priority: "Medium", status: "進行中", deadline: new Date().toISOString().split('T')[0] });
@@ -416,7 +441,14 @@
 
                 const updateGoal = (id, field, val) => setData(p => ({ ...p, goals: p.goals.map(g => g.id === id ? { ...g, [field]: val } : g) }));
                 const deleteGoal = (id) => confirm("刪除？") && setData(p => ({...p, goals: p.goals.filter(g => g.id !== id)}));
-                const toggleStatus = (id) => setData(p => ({ ...p, goals: p.goals.map(g => g.id === id ? { ...g, status: g.status === "已完成" ? "進行中" : "已完成" } : g) }));
+                // Direct Toggle with Checkbox feel
+                const toggleStatus = (id) => {
+                    const goal = data.goals.find(g => g.id === id);
+                    const newStatus = goal.status === "已完成" ? "進行中" : "已完成";
+                    updateGoal(id, 'status', newStatus);
+                    if(newStatus === "已完成") soundEngine.playFanfare();
+                    else soundEngine.playSFX('click');
+                };
 
                 const addSubject = () => {
                     if(newSubjName && !data.subjects.includes(newSubjName)) {
@@ -442,6 +474,7 @@
                             </div>
                         </div>
 
+                        {/* Subject Editor */}
                         {isEditingSubject && (
                             <div className="arcane-panel p-4 mb-4">
                                 <div className="flex gap-2 mb-4">
@@ -452,7 +485,7 @@
                                     {data.subjects.map(s => (
                                         <div key={s} className="bg-slate-800 px-3 py-1 rounded border border-white/10 text-sm flex items-center gap-2 pr-1 relative z-20">
                                             {s} 
-                                            <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); deleteSubject(s); }} className="w-6 h-6 flex items-center justify-center bg-red-500 hover:bg-red-600 text-white rounded-full transition-colors cursor-pointer relative z-30">
+                                            <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); deleteSubject(s); }} className="w-6 h-6 flex items-center justify-center hover:bg-red-500 rounded-full transition-colors cursor-pointer relative z-30 text-red-400 hover:text-white">
                                                 <i className="fa-solid fa-xmark text-xs pointer-events-none"></i>
                                             </button>
                                         </div>
@@ -461,59 +494,75 @@
                             </div>
                         )}
 
+                        {/* Quick Add */}
                         <div className="arcane-panel p-4 flex flex-wrap gap-2 items-center">
                             <select className="magic-input p-2 rounded w-32" value={newGoal.subject} onChange={e => setNewGoal({...newGoal, subject: e.target.value})}>
                                 <option value="">科目...</option>
                                 {data.subjects.map(s => <option key={s} value={s}>{s}</option>)}
                             </select>
                             <input className="magic-input p-2 rounded flex-1" placeholder="新目標名稱..." value={newGoal.name} onChange={e => setNewGoal({...newGoal, name: e.target.value})} />
+                            <select className="magic-input p-2 rounded" value={newGoal.priority} onChange={e => setNewGoal({...newGoal, priority: e.target.value})}>
+                                <option value="High">🔴 緊急</option><option value="Medium">🟡 普通</option><option value="Low">🟢 暫緩</option>
+                            </select>
                             <input type="date" className="magic-input p-2 rounded" value={newGoal.deadline} onChange={e => setNewGoal({...newGoal, deadline: e.target.value})} />
                             <button onClick={addGoal} className="btn-primary px-4 py-2 rounded font-bold"><i className="fa-solid fa-plus"></i></button>
                         </div>
 
+                        {/* Calendar View for DDLs */}
+                        {viewMode === 'calendar' && (
+                            <div className="arcane-panel p-6 space-y-4">
+                                <h4 className="text-gold font-bold mb-4">截止日期總覽</h4>
+                                {data.goals.sort((a,b) => new Date(a.deadline) - new Date(b.deadline)).map(g => (
+                                    <div key={g.id} className="flex items-center gap-4 p-3 bg-black/40 rounded border border-white/5">
+                                        <div className={`w-2 h-10 rounded ${g.priority==='High'?'bg-red-500':g.priority==='Medium'?'bg-yellow-500':'bg-green-500'}`}></div>
+                                        <div className="flex-1">
+                                            <div className="flex justify-between">
+                                                <span className={`font-bold ${g.status==='已完成' ? 'line-through text-gray-500' : 'text-white'}`}>{g.name}</span>
+                                                <span className="text-sm text-red-400 font-mono">{g.deadline}</span>
+                                            </div>
+                                            <div className="text-xs text-gray-500">{g.subject}</div>
+                                        </div>
+                                        <button onClick={() => toggleStatus(g.id)} className={`w-8 h-8 flex items-center justify-center rounded-full border ${g.status==='已完成'?'bg-green-600 border-green-500 text-white':'border-gray-500 text-gray-500 hover:border-gold hover:text-gold'}`}>
+                                            <i className="fa-solid fa-check"></i>
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+
+                        {/* Kanban View */}
                         {viewMode === 'kanban' && (
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                                 {[...new Set([...data.subjects, ...data.goals.map(g => g.subject)])].map(subj => (
                                     <div key={subj} className="arcane-panel p-4 flex flex-col gap-3">
                                         <h4 className="text-gold font-bold border-b border-white/10 pb-2 mb-2">{subj}</h4>
                                         {data.goals.filter(g => g.subject === subj).map(g => (
-                                            <div key={g.id} className="p-3 rounded bg-black/40 border border-white/5 hover:border-gold/30 transition flex justify-between items-center">
+                                            <div key={g.id} className={`p-3 rounded bg-black/40 border border-white/5 hover:border-gold/30 transition flex justify-between items-center group ${g.status === '已完成' ? 'opacity-50' : ''}`}>
                                                 <div className="flex-1 mr-2">
-                                                    <input className="bg-transparent font-bold w-full outline-none text-white" value={g.name} onChange={e => updateGoal(g.id, 'name', e.target.value)} />
+                                                    <div className="font-bold text-white">{g.name}</div>
                                                     <div className="text-xs text-gray-400">{g.deadline}</div>
                                                 </div>
                                                 <div className="flex gap-2">
-                                                    <button onClick={() => { toggleStatus(g.id); soundEngine.playSFX('success'); }} className="text-green-400 hover:text-green-300"><i className={`fa-solid ${g.status==='已完成'?'fa-rotate-left':'fa-check'}`}></i></button>
-                                                    <button onClick={() => deleteGoal(g.id)} className="text-red-400 opacity-0 hover:opacity-100 transition"><i className="fa-solid fa-trash"></i></button>
+                                                    <button onClick={() => toggleStatus(g.id)} className={`text-xl ${g.status==='已完成'?'text-green-400':'text-gray-600 hover:text-green-400'}`}>
+                                                        <i className={`fa-regular ${g.status==='已完成'?'fa-square-check':'fa-square'}`}></i>
+                                                    </button>
+                                                    <button onClick={() => deleteGoal(g.id)} className="text-red-400 opacity-0 group-hover:opacity-100 transition"><i className="fa-solid fa-trash"></i></button>
                                                 </div>
                                             </div>
                                         ))}
                                     </div>
                                 ))}
-                            </div>
-                        )}
-                        {viewMode === 'calendar' && (
-                            <div className="arcane-panel p-6 space-y-2">
-                                {data.goals.sort((a,b) => new Date(a.deadline) - new Date(b.deadline)).map(g => (
-                                    <div key={g.id} className="flex items-center gap-4 p-3 bg-black/40 rounded border border-white/5">
-                                        <div className={`w-2 h-10 rounded ${g.priority==='High'?'bg-red-500':g.priority==='Medium'?'bg-yellow-500':'bg-green-500'}`}></div>
-                                        <div className="flex-1">
-                                            <span className="text-xs bg-slate-700 px-2 rounded text-gray-300 mr-2">{g.subject}</span>
-                                            <span className={`font-bold ${g.status==='已完成' ? 'line-through text-gray-500' : 'text-white'}`}>{g.name}</span>
-                                            <span className="text-xs text-gray-400 ml-2"><i className="fa-regular fa-clock"></i> {g.deadline}</span>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
+                             </div>
                         )}
                     </div>
                 );
             };
 
-            // --- ⚔️ Tab 3: 征途繪卷 ---
+            // --- ⚔️ Tab 3: 征途繪卷 (Small Tasks) ---
             const TaskView = () => {
                 const [newTask, setNewTask] = useState({ name: "", goal: "", est: 30, diff: "簡單", hate: false, notes: "" });
                 const [completeModal, setCompleteModal] = useState(null);
+                const [finalNotes, setFinalNotes] = useState("");
 
                 const getRewardPreview = () => {
                     const diffBonus = { "簡單": data.rules.diff_easy, "中等": data.rules.diff_med, "困難": data.rules.diff_hard, "極難": data.rules.diff_ext }[newTask.diff] || 5;
@@ -524,7 +573,7 @@
 
                 const addTask = () => {
                     if (!newTask.name) return showToast("內容不能為空", "exclamation");
-                    setData(p => ({...p, tasks: [...p.tasks, { id: Date.now(), ...newTask, status: 'active', date: new Date().toISOString() }]}));
+                    setData(p => ({...p, tasks: [...p.tasks, { id: Date.now(), ...newTask, status: 'active', date: getLogicalDate() }]}));
                     setNewTask({ ...newTask, name: "", notes: "" }); 
                     showToast("委託已發布", "scroll");
                 };
@@ -538,7 +587,7 @@
                     let soul = (task.diff === "困難" ? 1 : (task.diff === "極難" ? 2 : 0));
                     let star = focus >= data.rules.star_threshold ? Math.floor(focus / 60) : 0;
                     const rewardStr = `+${mithril}秘` + (soul ? ` +${soul}靈` : '') + (star ? ` +${star}星` : '');
-                    const todayStr = new Date().toISOString().split('T')[0];
+                    const todayStr = getLogicalDate();
 
                     setData(prev => ({
                         ...prev,
@@ -547,7 +596,8 @@
                             coins_mithril: prev.profile.coins_mithril + mithril,
                             coins_soul: prev.profile.coins_soul + soul,
                             coins_star: prev.profile.coins_star + star,
-                            today_coins: prev.profile.today_coins + mithril
+                            today_coins: prev.profile.today_coins + mithril,
+                            weekly_coins: prev.profile.weekly_coins + mithril
                         },
                         tasks: prev.tasks.filter(t => t.id !== taskId),
                         adventure_log: [{ 
@@ -556,12 +606,13 @@
                             item: `完成: ${task.name}`, 
                             cost: rewardStr, 
                             type: 'income',
-                            details: `總:${total}分 / 專注:${focus}分 / ${task.notes || '無備註'}`,
+                            details: `總:${total}分 / 專注:${focus}分 / ${finalNotes || '無備註'}`,
                             subject: task.goal || "雜項",
-                            rawMithril: mithril // for revert
+                            rawMithril: mithril
                         }, ...prev.adventure_log]
                     }));
                     setCompleteModal(null);
+                    setFinalNotes("");
                     soundEngine.playFanfare();
                     showToast(`獲得 ${mithril} 秘銀`, "coins");
                 };
@@ -584,7 +635,6 @@
                                     <input type="checkbox" className="mr-1" checked={newTask.hate} onChange={e => setNewTask({...newTask, hate: e.target.checked})} /> 厭惡
                                 </label>
                             </div>
-                            <textarea className="magic-input w-full p-2 rounded mb-2 text-sm" placeholder="備註 (選填)" rows="2" value={newTask.notes} onChange={e => setNewTask({...newTask, notes: e.target.value})}></textarea>
                             <div className="flex justify-between items-center bg-black/40 p-2 rounded text-sm text-gray-400 mb-2">
                                 <span>公式: 專注時間 × 難度係數</span>
                                 <span className="text-gold font-bold">預計: {getRewardPreview()} 秘銀</span>
@@ -601,7 +651,7 @@
                                             <h4 className="font-bold text-lg text-white">{task.name}</h4>
                                             {task.hate && <span className="text-[10px] bg-red-900 px-2 rounded text-white">厭惡</span>}
                                         </div>
-                                        <p className="text-sm text-gray-400 mt-1">🎯 {task.goal||"無"} | ⏳ 預計 {task.est} 分 {task.notes && `| 📝 ${task.notes}`}</p>
+                                        <p className="text-sm text-gray-400 mt-1">🎯 {task.goal||"無"} | ⏳ 預計 {task.est} 分</p>
                                     </div>
                                     <button onClick={() => setCompleteModal(task.id)} className="px-4 py-2 bg-green-700 hover:bg-green-600 text-white rounded font-bold shadow-lg">回報成果</button>
                                     <button onClick={() => setData(p => ({...p, tasks: p.tasks.filter(t => t.id !== task.id)}))} className="text-red-400 px-2"><i className="fa-solid fa-trash"></i></button>
@@ -616,6 +666,7 @@
                                     <div className="space-y-3">
                                         <div><label className="text-xs text-gray-400">實際總耗時 (分)</label><input type="number" id="totalTime" className="magic-input w-full p-2 rounded" defaultValue={data.tasks.find(t=>t.id===completeModal).est} /></div>
                                         <div><label className="text-xs text-gold">實際專注時間 (分) - 獎勵依據</label><input type="number" id="focusTime" className="magic-input w-full p-2 rounded border-gold/50" defaultValue={data.tasks.find(t=>t.id===completeModal).est} /></div>
+                                        <div><label className="text-xs text-gray-400">結算備註 (心得/細節)</label><textarea className="magic-input w-full p-2 rounded" rows="2" value={finalNotes} onChange={e => setFinalNotes(e.target.value)}></textarea></div>
                                         <button onClick={() => handleComplete(completeModal, Number(document.getElementById('totalTime').value), Number(document.getElementById('focusTime').value))} className="w-full py-2 bg-green-600 rounded font-bold mt-2">確認領賞</button>
                                     </div>
                                 </div>
@@ -627,30 +678,28 @@
 
             // --- 📜 Tab 4: 冒險手札 (Log) ---
             const AdventureLogView = () => {
-                const [view, setView] = useState('daily'); // daily, project
+                const [view, setView] = useState('daily'); 
                 
                 const revertLog = (idx) => {
                     const log = data.adventure_log[idx];
                     if(!log || !confirm("確定撤銷此紀錄？獎勵將被扣除。")) return;
-                    
-                    // Deduct rewards logic (Simplified for mithril)
                     let newProfile = {...data.profile};
-                    if(log.rawMithril) newProfile.coins_mithril -= log.rawMithril;
-                    // Note: Could expand for other currencies if tracked in log details
-
+                    if(log.rawMithril) {
+                         newProfile.coins_mithril -= log.rawMithril;
+                         newProfile.today_coins -= log.rawMithril;
+                         newProfile.weekly_coins -= log.rawMithril;
+                    }
                     const newLog = [...data.adventure_log];
                     newLog.splice(idx, 1);
                     setData(p => ({...p, profile: newProfile, adventure_log: newLog}));
                     showToast("紀錄已撤銷", "rotate-left");
                 };
 
-                // Group for Project View
                 const groupedBySubject = {};
                 data.adventure_log.forEach(l => {
                     const subj = l.subject || "未分類";
                     if(!groupedBySubject[subj]) groupedBySubject[subj] = { totalTime: 0, logs: [] };
-                    // Parse time from details string: "總:30分..."
-                    const timeMatch = l.details && l.details.match(/總:(\d+)/);
+                    const timeMatch = l.details && l.details.match(/專注:(\d+)/);
                     if(timeMatch) groupedBySubject[subj].totalTime += parseInt(timeMatch[1]);
                     groupedBySubject[subj].logs.push(l);
                 });
@@ -678,7 +727,7 @@
 
                             {view === 'project' && Object.entries(groupedBySubject).map(([subj, data]) => (
                                 <div key={subj} className="mb-6">
-                                    <h4 className="text-gold font-bold mb-2 border-b border-white/10">{subj} <span className="text-xs text-gray-400 ml-2">(累計投入: {data.totalTime} 分鐘)</span></h4>
+                                    <h4 className="text-gold font-bold mb-2 border-b border-white/10">{subj} <span className="text-xs text-gray-400 ml-2">(累計專注: {data.totalTime} 分鐘)</span></h4>
                                     {data.logs.map((h, i) => (
                                         <div key={i} className="text-sm text-gray-300 ml-4 mb-1 flex justify-between">
                                             <span>{h.item}</span>
@@ -697,7 +746,6 @@
             const ShopView = () => {
                 const [activeSubTab, setActiveSubTab] = useState('market'); 
                 const [editMode, setEditMode] = useState(false);
-                const [editItem, setEditItem] = useState(null); // ID of item being edited
                 const [newItem, setNewItem] = useState({ name: "", cost: 100, currency: "mithril", desc: "" });
 
                 const buy = (item) => {
@@ -734,7 +782,7 @@
                     const item = data.shop.find(i => i.id == itemId);
                     if(!item) return;
                     if(item.effect === 'rest_day') {
-                        setData(p => ({ ...p, profile: { ...p.profile, day_type: "🏖️ 假期" } }));
+                        setData(p => ({ ...p, profile: { ...p.profile, day_type: "🏖️ 假期", custom_daily_target: 0 } }));
                         showToast("已使用休息卷！今日目標歸零", "umbrella-beach");
                     } else {
                         showToast("道具已使用", "magic");
@@ -783,23 +831,16 @@
                                                     </>
                                                 )}
                                             </div>
-                                            
                                             <div className="flex justify-between items-end relative z-20 pt-2 border-t border-white/5">
                                                 <div className={`font-bold text-lg ${CURRENCIES[item.currency].color} flex items-center gap-1`}>
                                                     {editMode ? <input type="number" className="w-16 bg-black text-white" value={item.cost} onChange={e=>updateShopItem(item.id, 'cost', Number(e.target.value))} /> : item.cost} 
                                                     <i className={`fa-solid ${CURRENCIES[item.currency].icon}`}></i>
                                                 </div>
-                                                
                                                 {editMode ? (
                                                     <button onClick={() => setData(p => ({...p, shop: p.shop.filter(i => i.id !== item.id)}))} className="text-red-400 hover:text-red-200 z-50 cursor-pointer relative"><i className="fa-solid fa-trash"></i></button>
                                                 ) : (
-                                                    // FIX: Highest Z-Index for Buy Button
                                                     <button 
-                                                        onClick={(e) => { 
-                                                            e.stopPropagation(); 
-                                                            e.preventDefault(); 
-                                                            buy(item); 
-                                                        }} 
+                                                        onClick={(e) => { e.stopPropagation(); e.preventDefault(); buy(item); }} 
                                                         className="relative z-50 bg-gradient-to-r from-gold/20 to-gold/40 hover:from-gold hover:to-yellow-300 hover:text-black border border-gold/50 text-gold px-6 py-2 rounded-full font-bold shadow-lg transition-all active:scale-95 cursor-pointer pointer-events-auto"
                                                     >
                                                         購買
@@ -807,9 +848,6 @@
                                                 )}
                                             </div>
                                             <div className="absolute top-2 right-2 text-xs text-gray-500 z-10">已持有: {data.inventory[item.id] || 0}</div>
-                                            
-                                            {/* Decoration */}
-                                            <div className="absolute inset-0 bg-gradient-to-br from-yellow-500/5 to-transparent rotate-12 opacity-0 group-hover:opacity-100 transition duration-500 pointer-events-none z-0"></div>
                                         </div>
                                     ))}
                                 </div>
@@ -861,7 +899,7 @@
                                 setData(prev => ({
                                     ...prev,
                                     profile: { ...prev.profile, [`coins_${a.currency}`]: prev.profile[`coins_${a.currency}`] + a.reward },
-                                    adventure_log: [{ date: new Date().toISOString().split('T')[0], displayDate: new Date().toLocaleString(), item: `成就: ${a.name}`, cost: `+${a.reward}啟`, type: 'income', details: '成就解鎖' }, ...prev.adventure_log]
+                                    adventure_log: [{ date: getLogicalDate(), displayDate: new Date().toLocaleString(), item: `成就: ${a.name}`, cost: `+${a.reward}啟`, type: 'income', details: '成就解鎖' }, ...prev.adventure_log]
                                 }));
                                 soundEngine.playFanfare();
                                 showToast("榮耀解鎖！", "trophy");
@@ -944,7 +982,7 @@
                                         <input type="file" accept="audio/*" className="hidden" onChange={handleMusicUpload} />
                                     </label>
                                 </div>
-                                {tempRules.music_url && tempRules.music_url.startsWith('blob:') && <p className="text-xs text-green-400 mb-2"><i className="fa-solid fa-check"></i> 已載入本地檔案</p>}
+                                {tempRules.music_url && tempRules.music_url.startsWith('blob:') && <p className="text-xs text-green-400 mb-2"><i className="fa-solid fa-check"></i> 已載入本地檔案 (重新整理後需重新載入)</p>}
                                 <div className="mt-4 flex items-center gap-2">
                                     <label className="text-xs text-gray-400">音量</label>
                                     <input type="range" min="0" max="1" step="0.1" value={tempRules.music_volume || 0.3} onChange={e => {
@@ -952,6 +990,17 @@
                                         if(audioRef.current) audioRef.current.volume = parseFloat(e.target.value);
                                     }} className="flex-1 h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer" />
                                 </div>
+                            </div>
+                            
+                            {/* Reset Day Time */}
+                             <div className="bg-black/40 p-4 rounded-xl mb-6 text-left border border-gold/30">
+                                <h4 className="text-gold text-sm font-bold mb-3">一日結算時間</h4>
+                                <div className="flex items-center gap-2 text-sm text-gray-300">
+                                    <span>新的一天開始於:</span>
+                                    <input type="number" min="0" max="23" className="magic-input w-16 p-1 text-center rounded" value={tempRules.reset_hour || 0} onChange={e => setTempRules({...tempRules, reset_hour: Number(e.target.value)})} />
+                                    <span>:00</span>
+                                </div>
+                                <p className="text-xs text-gray-500 mt-1">例如設定為 3，則凌晨 2:59 仍算作「昨天」。</p>
                             </div>
 
                             <button onClick={() => { 
@@ -996,6 +1045,10 @@
                                 <div className="col-span-2 text-gold text-xs font-bold border-b border-white/10 pt-2">特殊貨幣</div>
                                 <div><label className="text-xs text-yellow-500">星耀門檻 (分鐘)</label><input type="number" className="magic-input w-full p-2 rounded" disabled={!editRules} value={tempRules.star_threshold} onChange={e=>setTempRules({...tempRules, star_threshold: Number(e.target.value)})}/></div>
                                 <div><label className="text-xs text-cyan-400">漣漪獎勵 (打卡)</label><input type="number" className="magic-input w-full p-2 rounded" disabled={!editRules} value={tempRules.checkin_reward} onChange={e=>setTempRules({...tempRules, checkin_reward: Number(e.target.value)})}/></div>
+                                
+                                <div className="col-span-2 text-gold text-xs font-bold border-b border-white/10 pt-2">目標設定</div>
+                                <div><label className="text-xs text-gray-300">預設每日目標</label><input type="number" className="magic-input w-full p-2 rounded" disabled={!editRules} value={tempRules.daily_target_def} onChange={e=>setTempRules({...tempRules, daily_target_def: Number(e.target.value)})}/></div>
+                                <div><label className="text-xs text-gray-300">預設每週目標</label><input type="number" className="magic-input w-full p-2 rounded" disabled={!editRules} value={tempRules.weekly_target_def} onChange={e=>setTempRules({...tempRules, weekly_target_def: Number(e.target.value)})}/></div>
                             </div>
                         </div>
                     </div>
@@ -1032,11 +1085,14 @@
             const Sidebar = () => {
                 const [showRanks, setShowRanks] = useState(false);
                 const [showHelp, setShowHelp] = useState(false);
-                const target = ["🏖️ 假期", "🤒 病假"].includes(data.profile.day_type) ? 0 : (data.profile.day_type === "📅 週末" ? 120 : 60);
+                const [editingDaily, setEditingDaily] = useState(false);
+                const logicalDate = getLogicalDate();
+                const target = data.profile.custom_daily_target || data.rules.daily_target_def || 300;
+                const weekTarget = data.rules.weekly_target_def || 2000;
                 
                 const handleCheckIn = () => {
                     if(data.profile.today_coins >= target) {
-                        const today = new Date().toISOString().split('T')[0];
+                        const today = logicalDate;
                         if(data.profile.check_in_history.includes(today)) { soundEngine.playSFX('error'); return showToast("已打卡", "check"); }
                         setData(p => ({
                             ...p, profile: { ...p.profile, streak: p.profile.streak+1, checked_in: true, coins_ripple: p.profile.coins_ripple+data.rules.checkin_reward, check_in_history: [...p.profile.check_in_history, today] }
@@ -1091,8 +1147,40 @@
                         </div>
 
                         <div className="arcane-panel p-4 animate-pulse-glow border border-accent/30">
-                            <div className="flex justify-between items-center mb-2"><span className="font-bold text-white text-sm">每日狀態</span><select className="bg-black border border-white/20 text-xs rounded px-1 text-gray-300 outline-none hover:border-accent transition" value={data.profile.day_type} onChange={e => setData(p => ({...p, profile: {...p.profile, day_type: e.target.value}}))}>{["🏫 上學日", "📅 週末", "🏖️ 假期", "🤒 病假"].map(o => <option key={o} value={o}>{o}</option>)}</select></div>
-                            {target > 0 ? (<div className="space-y-3"><div className="flex justify-between text-xs text-gray-400"><span>收集秘銀</span><span className="text-white">{Math.floor(data.profile.today_coins)} / {target}</span></div><div className="h-2 bg-black rounded-full overflow-hidden border border-white/10"><div className={`h-full transition-all duration-500 ${data.profile.today_coins >= target ? 'bg-green-500 shadow-[0_0_10px_#10B981]' : 'bg-blue-600'}`} style={{width: `${Math.min((data.profile.today_coins/target)*100, 100)}%`}}></div></div><button onClick={handleCheckIn} disabled={data.profile.checked_in} className={`w-full py-2 rounded text-sm font-bold transition-all shadow-lg ${data.profile.checked_in ? 'bg-white/10 text-gray-500 cursor-not-allowed' : 'bg-gradient-to-r from-gold to-orange-600 text-black hover:brightness-110 hover:shadow-[0_0_15px_rgba(255,215,0,0.4)]'}`}>{data.profile.checked_in ? <span><i className="fa-solid fa-check"></i> 本日已簽到</span> : <span><i className="fa-solid fa-bolt"></i> 注入魔力</span>}</button></div>) : <div className="text-center text-xs text-gray-500 py-2 border border-dashed border-white/10 rounded">今日休息</div>}
+                            <div className="flex justify-between items-center mb-2">
+                                <span className="font-bold text-white text-sm">每日狀態</span>
+                                <div className="flex gap-2">
+                                    <button onClick={() => setEditingDaily(!editingDaily)} className="text-xs text-gray-400 hover:text-white"><i className="fa-solid fa-pen-to-square"></i></button>
+                                    <select className="bg-black border border-white/20 text-xs rounded px-1 text-gray-300 outline-none hover:border-accent transition" value={data.profile.day_type} onChange={e => setData(p => ({...p, profile: {...p.profile, day_type: e.target.value}}))}>{["🏫 上學日", "📅 週末", "🏖️ 假期", "🤒 病假"].map(o => <option key={o} value={o}>{o}</option>)}</select>
+                                </div>
+                            </div>
+                            
+                            {/* Daily Progress */}
+                            <div className="mb-4">
+                                <div className="flex justify-between text-xs text-gray-400 mb-1">
+                                    <span>今日收集 ({Math.floor((data.profile.today_coins/target)*100)}%)</span>
+                                    {editingDaily ? <input type="number" className="w-12 bg-black text-white text-right" value={target} onChange={e=>setData(p=>({...p, profile: {...p.profile, custom_daily_target: Number(e.target.value)}}))} /> : <span className="text-white">{Math.floor(data.profile.today_coins)} / {target}</span>}
+                                </div>
+                                <div className="h-2 bg-black rounded-full overflow-hidden border border-white/10"><div className={`h-full transition-all duration-500 ${data.profile.today_coins >= target ? 'bg-green-500 shadow-[0_0_10px_#10B981]' : 'bg-blue-600'}`} style={{width: `${Math.min((data.profile.today_coins/target)*100, 100)}%`}}></div></div>
+                            </div>
+
+                            {/* Weekly Progress */}
+                            <div className="mb-4">
+                                <div className="flex justify-between text-xs text-gray-400 mb-1">
+                                    <span>本週收集</span>
+                                    <span className="text-white">{Math.floor(data.profile.weekly_coins || 0)} / {weekTarget}</span>
+                                </div>
+                                <div className="h-1.5 bg-black rounded-full overflow-hidden border border-white/5"><div className="h-full bg-purple-500 transition-all duration-500" style={{width: `${Math.min(((data.profile.weekly_coins||0)/weekTarget)*100, 100)}%`}}></div></div>
+                            </div>
+
+                            {editingDaily && <input className="w-full bg-black/50 border border-white/10 rounded px-2 py-1 text-xs text-gray-300 mb-2" placeholder="今日備註..." value={data.profile.custom_daily_note || ""} onChange={e=>setData(p=>({...p, profile: {...p.profile, custom_daily_note: e.target.value}}))} />}
+
+                            {target > 0 ? (
+                                <button onClick={handleCheckIn} disabled={data.profile.checked_in} className={`w-full py-2 rounded text-sm font-bold transition-all shadow-lg ${data.profile.checked_in ? 'bg-white/10 text-gray-500 cursor-not-allowed' : 'bg-gradient-to-r from-gold to-orange-600 text-black hover:brightness-110 hover:shadow-[0_0_15px_rgba(255,215,0,0.4)]'}`}>
+                                    {data.profile.checked_in ? <span><i className="fa-solid fa-check"></i> 本日已簽到</span> : <span><i className="fa-solid fa-bolt"></i> 注入魔力</span>}
+                                </button>
+                            ) : <div className="text-center text-xs text-gray-500 py-2 border border-dashed border-white/10 rounded">今日休息</div>}
+                            
                             <button onClick={endDay} className="w-full mt-3 py-2 bg-purple-900/50 hover:bg-purple-800 border border-purple-500/30 rounded text-purple-200 text-sm transition">🌙 今日旅途結算</button>
                         </div>
                         
