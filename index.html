@@ -79,10 +79,9 @@
 
         .stars {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background-image: 
-                radial-gradient(2px 2px at 20px 30px, #eee, rgba(0,0,0,0)),
-                radial-gradient(2px 2px at 40px 70px, #fff, rgba(0,0,0,0)),
-                radial-gradient(1px 1px at 90px 40px, #fff, rgba(0,0,0,0));
+            background-image: radial-gradient(2px 2px at 20px 30px, #eee, rgba(0,0,0,0)),
+                              radial-gradient(2px 2px at 40px 70px, #fff, rgba(0,0,0,0)),
+                              radial-gradient(1px 1px at 90px 40px, #fff, rgba(0,0,0,0));
             background-size: 200px 200px;
             animation: twinkle 8s infinite;
             z-index: -1; opacity: 0.7;
@@ -256,6 +255,7 @@
                 custom_daily_target: null,
                 custom_daily_note: "",
             },
+            daily_records: {}, // YYYY-MM-DD: { note: "", achieved: 0, target: 0 }
             tasks: [],
             goals: [
                 { id: 1, subject: "英文", name: "背單字", priority: "High", status: "進行中", deadline: new Date().toISOString().split('T')[0] }
@@ -275,9 +275,10 @@
         // --- ⚛️ 主程式 ---
         const App = () => {
             const [data, setData] = useState(() => {
-                const saved = localStorage.getItem("isekai_system_v2_ultra");
+                const saved = localStorage.getItem("isekai_system_v28_daily");
                 const parsed = saved ? JSON.parse(saved) : INITIAL_DATA;
                 if(!parsed.rules) parsed.rules = DEFAULT_RULES;
+                if(!parsed.daily_records) parsed.daily_records = {}; // Ensure compatibility
                 return parsed;
             });
             const [activeTab, setActiveTab] = useState("calendar");
@@ -287,30 +288,39 @@
             const [editingCurrency, setEditingCurrency] = useState(false);
             const audioRef = useRef(null);
 
-            useEffect(() => { localStorage.setItem("isekai_system_v2_ultra", JSON.stringify(data)); }, [data]);
+            useEffect(() => { localStorage.setItem("isekai_system_v28_daily", JSON.stringify(data)); }, [data]);
 
-            // Logic: Get Logical Date based on Reset Hour
+            // --- 📅 核心修復：邏輯日期計算 (Local Time Fix) ---
             const getLogicalDate = () => {
                 const now = new Date();
                 const resetHour = data.rules.reset_hour || 0;
+                // 如果目前小時小於結算小時，算作前一天
                 if (now.getHours() < resetHour) {
                     now.setDate(now.getDate() - 1);
                 }
-                return now.toISOString().split('T')[0];
+                const y = now.getFullYear();
+                const m = String(now.getMonth() + 1).padStart(2, '0');
+                const d = String(now.getDate()).padStart(2, '0');
+                return `${y}-${m}-${d}`;
             };
 
             // Daily & Weekly Reset Logic
             useEffect(() => {
                 const logicalToday = getLogicalDate();
                 if (data.profile.last_login !== logicalToday) {
-                    // It's a new day
                     const lastDate = new Date(data.profile.last_login);
                     const currDate = new Date(logicalToday);
                     
-                    // Check for weekly reset (Monday)
+                    // Archive previous day record
+                    const prevDateStr = data.profile.last_login;
+                    const prevRecord = {
+                        note: data.profile.custom_daily_note || "",
+                        target: data.profile.custom_daily_target || data.rules.daily_target_def,
+                        achieved: data.profile.today_coins
+                    };
+
                     let newWeeklyCoins = data.profile.weekly_coins;
                     const dist = (currDate - lastDate) / (1000 * 60 * 60 * 24);
-                    // Simple check: if current day is Monday and last login was not today, or difference is large
                     if (currDate.getDay() === 1 && data.profile.last_login !== logicalToday) {
                         newWeeklyCoins = 0;
                     } else if (dist > 7) {
@@ -319,6 +329,7 @@
 
                     setData(prev => ({
                         ...prev,
+                        daily_records: { ...prev.daily_records, [prevDateStr]: prevRecord }, // Save archive
                         profile: {
                             ...prev.profile,
                             last_login: logicalToday,
@@ -326,18 +337,29 @@
                             weekly_coins: newWeeklyCoins,
                             checked_in: false,
                             day_type: "🏫 上學日",
-                            custom_daily_target: null, // Reset daily custom target
-                            custom_daily_note: ""
+                            custom_daily_target: null, // Reset daily target
+                            custom_daily_note: "" // Reset daily note
                         }
                     }));
                     if(data.setupComplete) setModal({ type: 'daily_welcome' });
                 }
             }, [data.rules.reset_hour]);
 
+            useEffect(() => {
+                if(audioRef.current && started) {
+                    audioRef.current.volume = data.rules.music_volume || 0.3;
+                    if(data.rules.music_url && audioRef.current.src !== data.rules.music_url) {
+                        audioRef.current.src = data.rules.music_url;
+                        audioRef.current.play().catch(e => console.log("Audio prevented", e));
+                    }
+                }
+            }, [data.rules.music_url, data.rules.music_volume, started]);
+
             const startSystem = () => {
                 setStarted(true);
                 soundEngine.init();
                 soundEngine.playFanfare();
+                if(audioRef.current && data.rules.music_url) audioRef.current.play();
             };
 
             const showToast = (msg, icon="check") => {
@@ -369,11 +391,13 @@
                 const offset = new Date(year, month, 1).getDay() === 0 ? 6 : new Date(year, month, 1).getDay() - 1;
 
                 const getDayData = (day) => {
-                    const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                    const dStr = String(day).padStart(2, '0');
+                    const mStr = String(month + 1).padStart(2, '0');
+                    const dateStr = `${year}-${mStr}-${dStr}`;
                     let income = 0;
                     let logs = [];
                     data.adventure_log.forEach(h => {
-                        if (h.date === dateStr && h.type === 'income') {
+                        if ((h.date === dateStr) && h.type === 'income') {
                             const match = h.cost.match(/(\d+(\.\d+)?)秘/);
                             if(match) income += parseFloat(match[1]);
                             logs.push(h);
@@ -381,18 +405,20 @@
                     });
                     const ddls = data.goals.filter(g => g.deadline === dateStr);
                     const checkedIn = data.profile.check_in_history.includes(dateStr);
-                    return { dateStr, income, logs, ddls, checkedIn };
+                    const dailyRecord = data.daily_records[dateStr]; // Fetch archived note
+                    return { dateStr, income, logs, ddls, checkedIn, dailyRecord };
                 };
 
                 return (
                     <div className="space-y-6 animate-fade-in">
                         <div className="flex justify-between items-center bg-black/60 p-4 rounded-xl border border-gold/30 shadow-lg">
-                            <button onClick={() => setViewDate(new Date(year, month - 1, 1))} className="text-gold hover:text-white p-2"><i className="fa-solid fa-chevron-left fa-lg"></i></button>
+                            <button onClick={() => { setViewDate(new Date(year, month - 1, 1)); soundEngine.playSFX('click'); }} className="text-gold hover:text-white p-2"><i className="fa-solid fa-chevron-left fa-lg"></i></button>
                             <h2 className="text-3xl font-fantasy text-gold-glow tracking-widest flex items-center gap-2">
                                 <i className="fa-solid fa-calendar-days text-accent"></i> {year} 年 {month + 1} 月
                             </h2>
-                            <button onClick={() => setViewDate(new Date(year, month + 1, 1))} className="text-gold hover:text-white p-2"><i className="fa-solid fa-chevron-right fa-lg"></i></button>
+                            <button onClick={() => { setViewDate(new Date(year, month + 1, 1)); soundEngine.playSFX('click'); }} className="text-gold hover:text-white p-2"><i className="fa-solid fa-chevron-right fa-lg"></i></button>
                         </div>
+
                         <div className="grid grid-cols-7 gap-3">
                             {['MON','TUE','WED','THU','FRI','SAT','SUN'].map(d => <div key={d} className="text-center text-gray-400 font-bold uppercase tracking-wider">{d}</div>)}
                             {Array(offset).fill(null).map((_, i) => <div key={`e-${i}`}></div>)}
@@ -414,6 +440,8 @@
                                                 <div key={idx} className="text-[10px] bg-red-900/60 text-red-100 px-1 rounded border border-red-500/30 truncate">🎯 {g.name}</div>
                                             ))}
                                             {info.income > 0 && <div className="text-xs text-blue-300 font-mono flex items-center gap-1"><i className="fa-solid fa-gem text-[10px]"></i> +{Math.floor(info.income)}</div>}
+                                            {/* Show icon if note exists */}
+                                            {info.dailyRecord?.note && <div className="text-[9px] text-yellow-500"><i className="fa-solid fa-note-sticky"></i> 有備註</div>}
                                         </div>
                                     </div>
                                 );
@@ -423,7 +451,7 @@
                 );
             };
 
-            // --- 🔭 Tab 2: 命途星圖 (Big Missions) ---
+            // --- 🔭 Tab 2: 命途星圖 ---
             const GoalView = () => {
                 const [viewMode, setViewMode] = useState('kanban'); 
                 const [newGoal, setNewGoal] = useState({ subject: "", name: "", priority: "Medium", status: "進行中", deadline: new Date().toISOString().split('T')[0] });
@@ -441,14 +469,7 @@
 
                 const updateGoal = (id, field, val) => setData(p => ({ ...p, goals: p.goals.map(g => g.id === id ? { ...g, [field]: val } : g) }));
                 const deleteGoal = (id) => confirm("刪除？") && setData(p => ({...p, goals: p.goals.filter(g => g.id !== id)}));
-                // Direct Toggle with Checkbox feel
-                const toggleStatus = (id) => {
-                    const goal = data.goals.find(g => g.id === id);
-                    const newStatus = goal.status === "已完成" ? "進行中" : "已完成";
-                    updateGoal(id, 'status', newStatus);
-                    if(newStatus === "已完成") soundEngine.playFanfare();
-                    else soundEngine.playSFX('click');
-                };
+                const toggleStatus = (id) => setData(p => ({ ...p, goals: p.goals.map(g => g.id === id ? { ...g, status: g.status === "已完成" ? "進行中" : "已完成" } : g) }));
 
                 const addSubject = () => {
                     if(newSubjName && !data.subjects.includes(newSubjName)) {
@@ -474,7 +495,6 @@
                             </div>
                         </div>
 
-                        {/* Subject Editor */}
                         {isEditingSubject && (
                             <div className="arcane-panel p-4 mb-4">
                                 <div className="flex gap-2 mb-4">
@@ -483,9 +503,17 @@
                                 </div>
                                 <div className="flex gap-2 flex-wrap">
                                     {data.subjects.map(s => (
-                                        <div key={s} className="bg-slate-800 px-3 py-1 rounded border border-white/10 text-sm flex items-center gap-2 pr-1 relative z-20">
+                                        <div key={s} className="bg-slate-800 px-3 py-1 rounded border border-white/10 text-sm flex items-center gap-2 pr-1 relative group">
                                             {s} 
-                                            <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); deleteSubject(s); }} className="w-6 h-6 flex items-center justify-center hover:bg-red-500 rounded-full transition-colors cursor-pointer relative z-30 text-red-400 hover:text-white">
+                                            <button 
+                                                onClick={(e) => { 
+                                                    e.preventDefault();
+                                                    e.stopPropagation(); 
+                                                    deleteSubject(s); 
+                                                }} 
+                                                className="w-6 h-6 flex items-center justify-center bg-red-500/20 hover:bg-red-600 text-red-400 hover:text-white rounded-full transition-colors cursor-pointer relative z-50 ml-1"
+                                                title="刪除"
+                                            >
                                                 <i className="fa-solid fa-xmark text-xs pointer-events-none"></i>
                                             </button>
                                         </div>
@@ -494,7 +522,6 @@
                             </div>
                         )}
 
-                        {/* Quick Add */}
                         <div className="arcane-panel p-4 flex flex-wrap gap-2 items-center">
                             <select className="magic-input p-2 rounded w-32" value={newGoal.subject} onChange={e => setNewGoal({...newGoal, subject: e.target.value})}>
                                 <option value="">科目...</option>
@@ -508,57 +535,47 @@
                             <button onClick={addGoal} className="btn-primary px-4 py-2 rounded font-bold"><i className="fa-solid fa-plus"></i></button>
                         </div>
 
-                        {/* Calendar View for DDLs */}
-                        {viewMode === 'calendar' && (
-                            <div className="arcane-panel p-6 space-y-4">
-                                <h4 className="text-gold font-bold mb-4">截止日期總覽</h4>
-                                {data.goals.sort((a,b) => new Date(a.deadline) - new Date(b.deadline)).map(g => (
-                                    <div key={g.id} className="flex items-center gap-4 p-3 bg-black/40 rounded border border-white/5">
-                                        <div className={`w-2 h-10 rounded ${g.priority==='High'?'bg-red-500':g.priority==='Medium'?'bg-yellow-500':'bg-green-500'}`}></div>
-                                        <div className="flex-1">
-                                            <div className="flex justify-between">
-                                                <span className={`font-bold ${g.status==='已完成' ? 'line-through text-gray-500' : 'text-white'}`}>{g.name}</span>
-                                                <span className="text-sm text-red-400 font-mono">{g.deadline}</span>
-                                            </div>
-                                            <div className="text-xs text-gray-500">{g.subject}</div>
-                                        </div>
-                                        <button onClick={() => toggleStatus(g.id)} className={`w-8 h-8 flex items-center justify-center rounded-full border ${g.status==='已完成'?'bg-green-600 border-green-500 text-white':'border-gray-500 text-gray-500 hover:border-gold hover:text-gold'}`}>
-                                            <i className="fa-solid fa-check"></i>
-                                        </button>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-
-                        {/* Kanban View */}
                         {viewMode === 'kanban' && (
-                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                                 {[...new Set([...data.subjects, ...data.goals.map(g => g.subject)])].map(subj => (
                                     <div key={subj} className="arcane-panel p-4 flex flex-col gap-3">
                                         <h4 className="text-gold font-bold border-b border-white/10 pb-2 mb-2">{subj}</h4>
                                         {data.goals.filter(g => g.subject === subj).map(g => (
                                             <div key={g.id} className={`p-3 rounded bg-black/40 border border-white/5 hover:border-gold/30 transition flex justify-between items-center group ${g.status === '已完成' ? 'opacity-50' : ''}`}>
                                                 <div className="flex-1 mr-2">
-                                                    <div className="font-bold text-white">{g.name}</div>
+                                                    <input className="bg-transparent font-bold w-full outline-none text-white" value={g.name} onChange={e => updateGoal(g.id, 'name', e.target.value)} />
                                                     <div className="text-xs text-gray-400">{g.deadline}</div>
                                                 </div>
                                                 <div className="flex gap-2">
-                                                    <button onClick={() => toggleStatus(g.id)} className={`text-xl ${g.status==='已完成'?'text-green-400':'text-gray-600 hover:text-green-400'}`}>
-                                                        <i className={`fa-regular ${g.status==='已完成'?'fa-square-check':'fa-square'}`}></i>
-                                                    </button>
+                                                    <button onClick={() => { toggleStatus(g.id); soundEngine.playSFX('success'); }} className="text-green-400 hover:text-green-300"><i className={`fa-solid ${g.status==='已完成'?'fa-rotate-left':'fa-check'}`}></i></button>
                                                     <button onClick={() => deleteGoal(g.id)} className="text-red-400 opacity-0 group-hover:opacity-100 transition"><i className="fa-solid fa-trash"></i></button>
                                                 </div>
                                             </div>
                                         ))}
                                     </div>
                                 ))}
-                             </div>
+                            </div>
+                        )}
+                        
+                        {viewMode === 'calendar' && (
+                            <div className="arcane-panel p-6 space-y-2">
+                                {data.goals.sort((a,b) => new Date(a.deadline) - new Date(b.deadline)).map(g => (
+                                    <div key={g.id} className="flex items-center gap-4 p-3 bg-black/40 rounded border border-white/5">
+                                        <div className={`w-2 h-10 rounded ${g.priority==='High'?'bg-red-500':g.priority==='Medium'?'bg-yellow-500':'bg-green-500'}`}></div>
+                                        <div className="flex-1">
+                                            <span className="text-xs bg-slate-700 px-2 rounded text-gray-300 mr-2">{g.subject}</span>
+                                            <span className={`font-bold ${g.status==='已完成' ? 'line-through text-gray-500' : 'text-white'}`}>{g.name}</span>
+                                            <span className="text-xs text-gray-400 ml-2"><i className="fa-regular fa-clock"></i> {g.deadline}</span>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
                         )}
                     </div>
                 );
             };
 
-            // --- ⚔️ Tab 3: 征途繪卷 (Small Tasks) ---
+            // --- ⚔️ Tab 3: 征途繪卷 ---
             const TaskView = () => {
                 const [newTask, setNewTask] = useState({ name: "", goal: "", est: 30, diff: "簡單", hate: false, notes: "" });
                 const [completeModal, setCompleteModal] = useState(null);
@@ -572,7 +589,7 @@
                 };
 
                 const addTask = () => {
-                    if (!newTask.name) return showToast("內容不能為空", "exclamation");
+                    if (!newTask.name) { soundEngine.playSFX('error'); return showToast("內容不能為空", "triangle-exclamation"); }
                     setData(p => ({...p, tasks: [...p.tasks, { id: Date.now(), ...newTask, status: 'active', date: getLogicalDate() }]}));
                     setNewTask({ ...newTask, name: "", notes: "" }); 
                     showToast("委託已發布", "scroll");
@@ -581,7 +598,7 @@
                 const handleComplete = (taskId, total, focus) => {
                     const task = data.tasks.find(t => t.id === taskId);
                     const rate = { "簡單": data.rules.diff_easy, "中等": data.rules.diff_med, "困難": data.rules.diff_hard, "極難": data.rules.diff_ext }[task.diff] || 5;
-                    let mithril = Number((focus * rate * data.rules.money_per_min).toFixed(1));
+                    let mithril = Number(((focus / 30) * rate * data.rules.money_per_min).toFixed(1));
                     if (task.hate) mithril = Number((mithril * data.rules.hate_mult).toFixed(1));
                     
                     let soul = (task.diff === "困難" ? 1 : (task.diff === "極難" ? 2 : 0));
@@ -810,7 +827,6 @@
                                         <div className="flex gap-2">
                                             <input className="magic-input p-2 rounded" placeholder="商品名" value={newItem.name} onChange={e => setNewItem({...newItem, name: e.target.value})} />
                                             <input className="magic-input p-2 rounded w-24" type="number" placeholder="價格" value={newItem.cost} onChange={e => setNewItem({...newItem, cost: Number(e.target.value)})} />
-                                            <input className="magic-input p-2 rounded flex-1" placeholder="簡介" value={newItem.desc} onChange={e => setNewItem({...newItem, desc: e.target.value})} />
                                             <button onClick={addItem} className="btn-primary px-4 rounded">上架</button>
                                         </div>
                                     </div>
@@ -831,16 +847,23 @@
                                                     </>
                                                 )}
                                             </div>
+                                            
                                             <div className="flex justify-between items-end relative z-20 pt-2 border-t border-white/5">
                                                 <div className={`font-bold text-lg ${CURRENCIES[item.currency].color} flex items-center gap-1`}>
                                                     {editMode ? <input type="number" className="w-16 bg-black text-white" value={item.cost} onChange={e=>updateShopItem(item.id, 'cost', Number(e.target.value))} /> : item.cost} 
                                                     <i className={`fa-solid ${CURRENCIES[item.currency].icon}`}></i>
                                                 </div>
+                                                
                                                 {editMode ? (
                                                     <button onClick={() => setData(p => ({...p, shop: p.shop.filter(i => i.id !== item.id)}))} className="text-red-400 hover:text-red-200 z-50 cursor-pointer relative"><i className="fa-solid fa-trash"></i></button>
                                                 ) : (
+                                                    // FIX: Highest Z-Index for Buy Button
                                                     <button 
-                                                        onClick={(e) => { e.stopPropagation(); e.preventDefault(); buy(item); }} 
+                                                        onClick={(e) => { 
+                                                            e.stopPropagation(); 
+                                                            e.preventDefault(); 
+                                                            buy(item); 
+                                                        }} 
                                                         className="relative z-50 bg-gradient-to-r from-gold/20 to-gold/40 hover:from-gold hover:to-yellow-300 hover:text-black border border-gold/50 text-gold px-6 py-2 rounded-full font-bold shadow-lg transition-all active:scale-95 cursor-pointer pointer-events-auto"
                                                     >
                                                         購買
@@ -885,6 +908,7 @@
                                 <div className="font-mono font-bold text-red-400">{h.cost}</div>
                             </div>
                         ))}
+                        {data.history.length === 0 && <div className="text-gray-500 text-center">無交易紀錄</div>}
                     </div>
                 </div>
             );
@@ -944,7 +968,7 @@
                 );
             };
 
-            // --- ⚙️ Tab 8: 系統設定 ---
+            // --- ⚙️ Tab 8: 系統設定 (System & Rules) ---
             const SystemView = () => {
                 const [editRules, setEditRules] = useState(false);
                 const [tempRules, setTempRules] = useState(data.rules);
@@ -982,7 +1006,7 @@
                                         <input type="file" accept="audio/*" className="hidden" onChange={handleMusicUpload} />
                                     </label>
                                 </div>
-                                {tempRules.music_url && tempRules.music_url.startsWith('blob:') && <p className="text-xs text-green-400 mb-2"><i className="fa-solid fa-check"></i> 已載入本地檔案 (重新整理後需重新載入)</p>}
+                                {tempRules.music_url && tempRules.music_url.startsWith('blob:') && <p className="text-xs text-green-400 mb-2"><i className="fa-solid fa-check"></i> 已載入本地檔案</p>}
                                 <div className="mt-4 flex items-center gap-2">
                                     <label className="text-xs text-gray-400">音量</label>
                                     <input type="range" min="0" max="1" step="0.1" value={tempRules.music_volume || 0.3} onChange={e => {
@@ -1045,10 +1069,6 @@
                                 <div className="col-span-2 text-gold text-xs font-bold border-b border-white/10 pt-2">特殊貨幣</div>
                                 <div><label className="text-xs text-yellow-500">星耀門檻 (分鐘)</label><input type="number" className="magic-input w-full p-2 rounded" disabled={!editRules} value={tempRules.star_threshold} onChange={e=>setTempRules({...tempRules, star_threshold: Number(e.target.value)})}/></div>
                                 <div><label className="text-xs text-cyan-400">漣漪獎勵 (打卡)</label><input type="number" className="magic-input w-full p-2 rounded" disabled={!editRules} value={tempRules.checkin_reward} onChange={e=>setTempRules({...tempRules, checkin_reward: Number(e.target.value)})}/></div>
-                                
-                                <div className="col-span-2 text-gold text-xs font-bold border-b border-white/10 pt-2">目標設定</div>
-                                <div><label className="text-xs text-gray-300">預設每日目標</label><input type="number" className="magic-input w-full p-2 rounded" disabled={!editRules} value={tempRules.daily_target_def} onChange={e=>setTempRules({...tempRules, daily_target_def: Number(e.target.value)})}/></div>
-                                <div><label className="text-xs text-gray-300">預設每週目標</label><input type="number" className="magic-input w-full p-2 rounded" disabled={!editRules} value={tempRules.weekly_target_def} onChange={e=>setTempRules({...tempRules, weekly_target_def: Number(e.target.value)})}/></div>
                             </div>
                         </div>
                     </div>
@@ -1103,6 +1123,16 @@
                 };
 
                 const endDay = () => {
+                    const todayStr = logicalDate;
+                    const record = {
+                        note: data.profile.custom_daily_note || "",
+                        target: target,
+                        achieved: data.profile.today_coins
+                    };
+                    setData(prev => ({
+                        ...prev,
+                        daily_records: { ...prev.daily_records, [todayStr]: record }
+                    }));
                     setModal({ type: 'end_day_summary' });
                     soundEngine.playFanfare();
                 };
@@ -1207,6 +1237,13 @@
                             <div className="bg-black/40 p-4 rounded text-center">
                                 <div className="text-sm text-gray-400 mb-1">當日總收益</div>
                                 <div className="text-3xl text-gold font-bold">{Math.floor(info.income)} <span className="text-sm">秘銀</span></div>
+                                {info.dailyRecord && (
+                                    <div className="mt-2 pt-2 border-t border-white/10">
+                                        <div className="text-xs text-gray-500 mb-1">當日目標 / 備註</div>
+                                        <div className="text-sm text-white">{info.dailyRecord.achieved}/{info.dailyRecord.target}</div>
+                                        <div className="text-xs text-gray-300 italic">"{info.dailyRecord.note}"</div>
+                                    </div>
+                                )}
                             </div>
                             <div className="max-h-60 overflow-y-auto custom-scrollbar pr-1">
                                 <div className="text-white font-bold mb-2 text-sm border-b border-white/5 pb-1">📜 冒險紀錄</div>
@@ -1270,6 +1307,7 @@
                                 <h3 className="text-4xl font-fantasy text-gold mb-4">旅途結算</h3>
                                 <div className="text-6xl mb-6">🎉</div>
                                 <div className="text-2xl text-white mb-2">今日獲得 <span className="text-gold font-bold">{Math.floor(data.profile.today_coins)}</span> 秘銀</div>
+                                <p className="text-gray-400 mb-4">{data.profile.custom_daily_note || "今日無備註"}</p>
                                 <button onClick={() => setModal(null)} className="btn-primary px-8 py-2 rounded-full mt-6">明日再戰</button>
                             </div>
                         </div>
